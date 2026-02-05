@@ -1811,7 +1811,7 @@ checksum = "c41e0c4fef86961ac6d6f8a82609f55f31b05e4fce149ac5710e439df7619ba4"
 
 [[package]]
 name = "mac-batch-renamer"
-version = "1.0.0"
+version = "2.0.0"
 dependencies = [
  "lopdf",
  "serde",
@@ -1820,6 +1820,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-localhost",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
