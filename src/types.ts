@@ -24,3 +24,12 @@ export interface SplitPreviewResult {
   page_count: number;
   parts: SplitPreviewItem[];
 }
+
+export interface PageBoxes {
+  page_number: number;
+  media_box: string | null;
+  crop_box: string | null;
+  bleed_box: string | null;
+  trim_box: string | null;
+  art_box: string | null;
+}

@@ -6,8 +6,11 @@ import { FileEntry } from "./types";
 import { Logo } from "./components/Logo";
 import { BulkRenamer } from "./components/BulkRenamer";
 import { PdfSplitter } from "./components/PdfSplitter";
+import { PdfMerger } from "./components/PdfMerger";
+import { PageBoxInspector } from "./components/PageBoxInspector";
+import { PdfRotator } from "./components/PdfRotator";
 
-type ToolId = "pdf-bulk-renaming" | "pdf-splitter";
+type ToolId = "pdf-bulk-renaming" | "pdf-splitter" | "pdf-merger" | "page-box-inspector" | "pdf-rotator";
 
 function isPdf(name: string): boolean {
   return name.toLowerCase().endsWith(".pdf");
@@ -18,7 +21,18 @@ function App() {
   const [status, setStatus] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
-  const [currentTool, setCurrentTool] = useState<ToolId>("pdf-bulk-renaming");
+  const [currentTool, setCurrentTool] = useState<ToolId>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("lastActiveTool");
+      if (saved) return saved as ToolId;
+    }
+    return "pdf-bulk-renaming";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("lastActiveTool", currentTool);
+  }, [currentTool]);
+
   const toolsRef = useRef<HTMLDivElement>(null);
   const toolsCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -48,13 +62,31 @@ function App() {
     if (!paths || paths.length === 0) return;
     try {
       const entries = await invoke<FileEntry[]>("list_files_from_paths", { paths });
-      setFiles(entries);
+
+      setFiles((prev) => {
+        const shouldAppend = currentTool === "pdf-merger" || currentTool === "pdf-bulk-renaming";
+
+        if (shouldAppend) {
+          const newFiles = [...prev];
+          for (const entry of entries) {
+            if (!newFiles.some(f => f.path === entry.path)) {
+              newFiles.push(entry);
+            }
+          }
+          return newFiles;
+        } else {
+          return entries;
+        }
+      });
+
       setStatus(null);
     } catch (e) {
       setStatus({ type: "error", text: String(e) });
-      setFiles([]);
+      if (currentTool !== "pdf-merger" && currentTool !== "pdf-bulk-renaming") {
+        setFiles([]);
+      }
     }
-  }, []);
+  }, [currentTool]);
 
   const pickFiles = useCallback(async () => {
     const selected = await open({
@@ -159,6 +191,45 @@ function App() {
                   PDF Splitter
                 </button>
               </li>
+              <li role="none">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={currentTool === "pdf-merger" ? "active" : ""}
+                  onClick={() => {
+                    setCurrentTool("pdf-merger");
+                    setToolsOpen(false);
+                  }}
+                >
+                  PDF Merger
+                </button>
+              </li>
+              <li role="none">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={currentTool === "page-box-inspector" ? "active" : ""}
+                  onClick={() => {
+                    setCurrentTool("page-box-inspector");
+                    setToolsOpen(false);
+                  }}
+                >
+                  Page Box Inspector
+                </button>
+              </li>
+              <li role="none">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={currentTool === "pdf-rotator" ? "active" : ""}
+                  onClick={() => {
+                    setCurrentTool("pdf-rotator");
+                    setToolsOpen(false);
+                  }}
+                >
+                  Rotate Pages
+                </button>
+              </li>
             </ul>
           )}
         </div>
@@ -194,6 +265,49 @@ function App() {
             setStatus={setStatus}
             status={status}
             onSplitComplete={handleReset}
+          />
+        )}
+
+        {currentTool === "pdf-merger" && (
+          <PdfMerger
+            files={files}
+            setFiles={setFiles}
+            onPickFiles={pickFiles}
+            onPickFolder={pickFolder}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            dragOver={dragOver}
+            onReset={handleReset}
+            setStatus={setStatus}
+            status={status}
+            onMergeComplete={handleReset}
+          />
+        )}
+
+        {currentTool === "page-box-inspector" && (
+          <PageBoxInspector
+            files={files}
+            onPickFiles={pickFiles}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            dragOver={dragOver}
+            onReset={handleReset}
+          />
+        )}
+
+        {currentTool === "pdf-rotator" && (
+          <PdfRotator
+            files={files}
+            onPickFiles={pickFiles}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            dragOver={dragOver}
+            onReset={handleReset}
+            setStatus={setStatus}
+            status={status}
           />
         )}
       </main>

@@ -457,7 +457,187 @@ fn split_pdf(
         saved_paths.push(out_path.to_string_lossy().to_string());
     }
 
+    // ... (previous code implementation - splitting PDF)
     Ok(saved_paths)
+}
+
+// --- Merge and Inspect ---
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PageBoxes {
+    pub page_number: u32,
+    pub media_box: Option<String>,
+    pub crop_box: Option<String>,
+    pub bleed_box: Option<String>,
+    pub trim_box: Option<String>,
+    pub art_box: Option<String>,
+}
+
+fn format_rect(obj: &lopdf::Object) -> Option<String> {
+    if let Ok(arr) = obj.as_array() {
+        if arr.len() == 4 {
+            let nums: Vec<f64> = arr
+                .iter()
+                .filter_map(|o| match o {
+                     lopdf::Object::Real(f) => Some(*f as f64),
+                     lopdf::Object::Integer(i) => Some(*i as f64),
+                     _ => None,
+                })
+                .collect();
+            if nums.len() == 4 {
+               return Some(format!("[{:.2}, {:.2}, {:.2}, {:.2}]", nums[0], nums[1], nums[2], nums[3]));
+            }
+        }
+    }
+    None
+}
+
+#[tauri::command]
+fn get_page_boxes(path: String) -> AppResult<Vec<PageBoxes>> {
+    let path = Path::new(&path);
+    if !path.is_file() {
+         return Err(AppError::Path("Path is not a file.".to_string()));
+    }
+    let doc = Document::load(path)?;
+    let mut results = Vec::new();
+    
+    // doc.get_pages() returns BTreeMap<u32, ObjectId>
+    for (i, (_page_num, &page_id)) in doc.get_pages().iter().enumerate() {
+        let page_dict = doc.get_dictionary(page_id)?;
+        
+        let get_box = |name: &[u8]| -> Option<String> {
+             page_dict.get(name).ok().and_then(format_rect)
+        };
+        
+        results.push(PageBoxes {
+            page_number: (i + 1) as u32,
+            media_box: get_box(b"MediaBox"),
+            crop_box: get_box(b"CropBox"),
+            bleed_box: get_box(b"BleedBox"),
+            trim_box: get_box(b"TrimBox"),
+            art_box: get_box(b"ArtBox"),
+        });
+    }
+    
+    Ok(results)
+}
+
+#[tauri::command]
+fn merge_pdfs(paths: Vec<String>, output_path: String) -> AppResult<()> {
+    if paths.is_empty() {
+        return Err(AppError::Validation("No files to merge.".to_string()));
+    }
+    
+    let first_path = Path::new(&paths[0]);
+    if !first_path.exists() {
+         return Err(AppError::Path(format!("File not found: {}", paths[0])));
+    }
+    
+    // We start with the first document as our base
+    let mut final_doc = Document::load(first_path)?;
+
+    // Append subsequent documents
+    for path_str in paths.iter().skip(1) {
+         let p = Path::new(path_str);
+         if !p.exists() {
+             return Err(AppError::Path(format!("File not found: {}", path_str)));
+         }
+         let mut doc = Document::load(p)?;
+         
+         // 1. Shift IDs of the incoming doc so they don't collide with final_doc
+         doc.renumber_objects_with(final_doc.max_id);
+         final_doc.max_id = doc.max_id;
+         
+         // 2. Get pages BEFORE moving objects
+         // `doc.get_pages()` returns BTreeMap<u32, ObjectId>.
+         let pages: Vec<lopdf::ObjectId> = doc.get_pages().values().cloned().collect();
+         
+         // 3. Add all objects from incoming doc to final_doc
+         for (id, obj) in doc.objects {
+             final_doc.objects.insert(id, obj);
+         }
+         
+         // 4. Append pages to final_doc's page tree.
+         let catalog_id = final_doc.trailer.get(b"Root")?.as_reference()?;
+         let catalog = final_doc.get_object(catalog_id)?.as_dict()?;
+         let pages_id = catalog.get(b"Pages")?.as_reference()?;
+         
+         if let Ok(pages_dict) = final_doc.get_object_mut(pages_id).and_then(|o| o.as_dict_mut()) {
+             // Update Count
+             if let Ok(count) = pages_dict.get_mut(b"Count") {
+                 if let lopdf::Object::Integer(c) = count {
+                     *c += pages.len() as i64;
+                 }
+             }
+             // Update Kids
+             if let Ok(kids) = pages_dict.get_mut(b"Kids").and_then(|o| o.as_array_mut()) {
+                 for pid in pages {
+                     kids.push(lopdf::Object::Reference(pid));
+                 }
+             }
+         }
+    }
+    
+    final_doc.save(output_path)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn read_pdf_buffer(path: String) -> AppResult<Vec<u8>> {
+    let path = Path::new(&path);
+    if !path.is_file() {
+         return Err(AppError::Path("Path is not a file.".to_string()));
+    }
+    let data = fs::read(path)?;
+    Ok(data)
+}
+
+#[tauri::command]
+fn rotate_pdf_pages(path: String, rotations: std::collections::HashMap<u32, i32>) -> AppResult<()> {
+    let path = Path::new(&path);
+    if !path.is_file() {
+         return Err(AppError::Path("Path is not a file.".to_string()));
+    }
+    
+    // Load the document
+    let mut doc = Document::load(path)?;
+
+    // Iterate through pages
+    // doc.get_pages() returns a BTreeMap<u32, ObjectId> mapping page_number (1-based) to ObjectId
+    for (page_num, page_id) in doc.get_pages() {
+        // If this page is in our rotations map
+        if let Some(&angle_change) = rotations.get(&page_num) {
+            // Get current rotation
+            let mut current_rotation = 0;
+            if let Ok(page_dict) = doc.get_dictionary(page_id) {
+                if let Ok(rot) = page_dict.get(b"Rotate") {
+                    if let Ok(val) = rot.as_i64() {
+                        current_rotation = val as i32;
+                    }
+                }
+            }
+
+            // Calculate new rotation
+            // Normalize to 0, 90, 180, 270
+            let mut new_rotation = (current_rotation + angle_change) % 360;
+            if new_rotation < 0 {
+                new_rotation += 360;
+            }
+
+            // Update the dictionary
+            if let Ok(page_dict) = doc.get_object_mut(page_id).and_then(|o| o.as_dict_mut()) {
+                page_dict.set(b"Rotate", lopdf::Object::Integer(new_rotation as i64));
+            }
+        }
+    }
+
+    // Save back to the same path (or we could save to new, but request implies "Save")
+    // Note: Overwriting in place with lopdf::Document::save can be tricky if it reads lazily, 
+    // but Document::load reads fully into memory usually.
+    // To be safe, we save to a temporary file then rename, or just save since we loaded fully.
+    doc.save(path)?;
+    
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -473,6 +653,10 @@ pub fn run() {
             pdf_page_count,
             split_pdf_preview,
             split_pdf,
+            get_page_boxes,
+            merge_pdfs,
+            rotate_pdf_pages,
+            read_pdf_buffer,
         ])
         .setup(move |app| {
             let url: tauri::Url = format!("http://localhost:{}", LOCALHOST_PORT).parse().unwrap();
