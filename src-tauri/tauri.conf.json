@@ -1,0 +1,37 @@
+{
+  "productName": "Paradise PDF",
+  "version": "2.0.0",
+  "identifier": "com.paradisepdf",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "csp": null
+    },
+    "windows": []
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "12.0",
+      "entitlements": "./Entitlements.plist",
+      "signingIdentity": "-"
+    },
+    "shortDescription": "PDF tools: bulk rename, and more",
+    "longDescription": "Paradise PDF – bulk rename and other PDF tools. Bright, simple, Mac-native.",
+    "category": "Utility"
+  }
+}
