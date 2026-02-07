@@ -37,6 +37,17 @@ jobs:
       - name: install frontend dependencies
         run: npm install
         
+      - name: Check Secret Presence
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "Error: PUBLIC_REPO_PAT is empty or not found."
+            exit 1
+          else
+            echo "PUBLIC_REPO_PAT is present (length: ${#TOKEN})"
+          fi
+        env:
+          TOKEN: ${{ secrets.PUBLIC_REPO_PAT }}
+          
       - name: Build and Release
         uses: tauri-apps/tauri-action@v0
         env:
