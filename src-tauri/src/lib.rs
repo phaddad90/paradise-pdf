@@ -1,6 +1,7 @@
 //! Paradise PDF — Rust backend.
 //! File layer: listing, rename. PDF layer: split.
 
+use lopdf::dictionary;
 use lopdf::Document;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -472,6 +473,19 @@ pub struct PageBoxes {
     pub art_box: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PageMetadata {
+    pub page_number: u32,
+    pub is_landscape: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum PageAction {
+    Existing { page_number: u32 },
+    Blank,
+}
+
 fn format_rect(obj: &lopdf::Object) -> Option<String> {
     if let Ok(arr) = obj.as_array() {
         if arr.len() == 4 {
@@ -630,12 +644,116 @@ fn rotate_pdf_pages(path: String, rotations: std::collections::HashMap<u32, i32>
         }
     }
 
-    // Save back to the same path (or we could save to new, but request implies "Save")
-    // Note: Overwriting in place with lopdf::Document::save can be tricky if it reads lazily, 
-    // but Document::load reads fully into memory usually.
-    // To be safe, we save to a temporary file then rename, or just save since we loaded fully.
-    doc.save(path)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn get_organiser_pdf_metadata(path: String) -> AppResult<Vec<PageMetadata>> {
+    let path = Path::new(&path);
+    if !path.is_file() {
+        return Err(AppError::Path("Path is not a file.".to_string()));
+    }
+    let doc = Document::load(path)?;
+    let mut results = Vec::new();
+
+    for (i, (_page_num, &page_id)) in doc.get_pages().iter().enumerate() {
+        let page_dict = doc.get_dictionary(page_id)?;
+        let mut is_landscape = false;
+
+        if let Ok(media_box) = page_dict.get(b"MediaBox").and_then(|o| o.as_array()) {
+            if media_box.len() == 4 {
+                let nums: Vec<f64> = media_box
+                    .iter()
+                    .filter_map(|o| match o {
+                        lopdf::Object::Real(f) => Some(*f as f64),
+                        lopdf::Object::Integer(i) => Some(*i as f64),
+                        _ => None,
+                    })
+                    .collect();
+                if nums.len() == 4 {
+                    let width = (nums[2] - nums[0]).abs();
+                    let height = (nums[3] - nums[1]).abs();
+                    is_landscape = width > height;
+                }
+            }
+        }
+
+        results.push(PageMetadata {
+            page_number: (i + 1) as u32,
+            is_landscape,
+        });
+    }
+
+    Ok(results)
+}
+
+#[tauri::command]
+fn apply_pdf_organisation(
+    input_path: String,
+    actions: Vec<PageAction>,
+    output_path: String,
+) -> AppResult<()> {
+    let in_path = Path::new(&input_path);
+    if !in_path.is_file() {
+        return Err(AppError::Path("Input path is not a file.".to_string()));
+    }
+
+    let src_doc = Document::load(in_path)?;
+
+    let mut out_doc = Document::with_version("1.7");
+    let pages_id = out_doc.new_object_id();
+    let catalog_id = out_doc.add_object(dictionary! {
+        "Type" => "Catalog",
+        "Pages" => lopdf::Object::Reference(pages_id),
+    });
+    out_doc.trailer.set("Root", lopdf::Object::Reference(catalog_id));
+
+    let mut out_page_ids = Vec::new();
+    let mut clean_src = src_doc.clone();
+    clean_src.renumber_objects_with(out_doc.max_id);
+    let mapping = clean_src.get_pages();
     
+    for (id, obj) in clean_src.objects {
+        out_doc.objects.insert(id, obj);
+    }
+    out_doc.max_id = clean_src.max_id;
+
+    for action in actions {
+        match action {
+            PageAction::Existing { page_number } => {
+                if let Some(&page_id) = mapping.get(&page_number) {
+                    out_page_ids.push(page_id);
+                }
+            }
+            PageAction::Blank => {
+                let blank_id = out_doc.add_object(dictionary! {
+                    "Type" => "Page",
+                    "Parent" => lopdf::Object::Reference(pages_id),
+                    "MediaBox" => vec![0.into(), 0.into(), 595.28.into(), 841.89.into()],
+                    "Resources" => dictionary! {},
+                    "Contents" => vec![] as Vec<lopdf::Object>,
+                });
+                out_page_ids.push(blank_id);
+            }
+        }
+    }
+
+    let pages_dict = dictionary! {
+        "Type" => "Pages",
+        "Count" => out_page_ids.len() as i64,
+        "Kids" => out_page_ids.iter().map(|&id| lopdf::Object::Reference(id)).collect::<Vec<_>>(),
+    };
+    out_doc.objects.insert(pages_id, lopdf::Object::Dictionary(pages_dict));
+
+    for &page_id in &out_page_ids {
+        if let Ok(p_dict) = out_doc.get_object_mut(page_id).and_then(|o| o.as_dict_mut()) {
+            p_dict.set("Parent", lopdf::Object::Reference(pages_id));
+        }
+    }
+
+    out_doc.prune_objects();
+    out_doc.save(output_path)?;
+
     Ok(())
 }
 
@@ -715,6 +833,8 @@ pub fn run() {
             merge_pdfs,
             rotate_pdf_pages,
             read_pdf_buffer,
+            get_organiser_pdf_metadata,
+            apply_pdf_organisation,
         ])
         .setup(move |app| {
             let url: tauri::Url = format!("http://localhost:{}", LOCALHOST_PORT).parse().unwrap();

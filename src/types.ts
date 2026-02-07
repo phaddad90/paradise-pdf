@@ -33,3 +33,12 @@ export interface PageBoxes {
   trim_box: string | null;
   art_box: string | null;
 }
+
+export interface PageMetadata {
+  page_number: number;
+  is_landscape: boolean;
+}
+
+export type PageAction =
+  | { type: "existing"; page_number: number }
+  | { type: "blank" };

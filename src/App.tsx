@@ -11,8 +11,9 @@ import { PdfSplitter } from "./components/PdfSplitter";
 import { PdfMerger } from "./components/PdfMerger";
 import { PageBoxInspector } from "./components/PageBoxInspector";
 import { PdfRotator } from "./components/PdfRotator";
+import { PdfOrganiser } from "./components/PdfOrganiser";
 
-type ToolId = "pdf-bulk-renaming" | "pdf-splitter" | "pdf-merger" | "page-box-inspector" | "pdf-rotator";
+type ToolId = "pdf-bulk-renaming" | "pdf-splitter" | "pdf-merger" | "page-box-inspector" | "pdf-rotator" | "pdf-organiser";
 
 function isPdf(name: string): boolean {
   return name.toLowerCase().endsWith(".pdf");
@@ -273,6 +274,19 @@ function App() {
                   Rotate Pages
                 </button>
               </li>
+              <li role="none">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={currentTool === "pdf-organiser" ? "active" : ""}
+                  onClick={() => {
+                    setCurrentTool("pdf-organiser");
+                    setToolsOpen(false);
+                  }}
+                >
+                  Organise PDF
+                </button>
+              </li>
             </ul>
           )}
         </div>
@@ -351,6 +365,18 @@ function App() {
             onReset={handleReset}
             setStatus={setStatus}
             status={status}
+          />
+        )}
+
+        {currentTool === "pdf-organiser" && (
+          <PdfOrganiser
+            files={files}
+            onPickFiles={pickFiles}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            dragOver={dragOver}
+            onReset={handleReset}
           />
         )}
       </main>
