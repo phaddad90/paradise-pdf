@@ -110,10 +110,11 @@ export function PdfOrganiser({
             return;
         }
 
-        pages.forEach((p) => {
+        pages.forEach((p, idx) => {
+            const displayNum = idx + 1;
             if (criteria === "all") next.add(p.id);
-            else if (criteria === "even" && p.page_number && p.page_number % 2 === 0) next.add(p.id);
-            else if (criteria === "odd" && p.page_number && p.page_number % 2 !== 0) next.add(p.id);
+            else if (criteria === "even" && displayNum % 2 === 0) next.add(p.id);
+            else if (criteria === "odd" && displayNum % 2 !== 0) next.add(p.id);
             else if (criteria === "landscape" && p.is_landscape) next.add(p.id);
             else if (criteria === "portrait" && !p.is_landscape) next.add(p.id);
         });
