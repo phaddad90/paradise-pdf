@@ -1,7 +1,7 @@
 {
   "name": "mac-batch-renamer",
   "private": true,
-  "version": "2.2.6",
+  "version": "2.2.7",
   "author": "Peter Haddad",
   "type": "module",
   "scripts": {

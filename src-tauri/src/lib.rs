@@ -5,7 +5,7 @@ use lopdf::Document;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use thiserror::Error;
 
 // --- Error Handling ---
@@ -648,7 +648,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_localhost::Builder::new(LOCALHOST_PORT).build())
         .menu(|handle| {
-            use tauri::menu::{Menu, MenuItem, Submenu, IsMenuItem};
+            use tauri::menu::{Menu, MenuItem, Submenu, PredefinedMenuItem};
             
             let check_for_updates = MenuItem::with_id(handle, "check-for-updates", "Check for Updates...", true, None::<&str>)?;
             
@@ -657,17 +657,17 @@ pub fn run() {
                 "Paradise PDF",
                 true,
                 &[
-                    &MenuItem::about(handle, None, None)?,
-                    &MenuItem::separator(handle)?,
+                    &PredefinedMenuItem::about(handle, None, None)?,
+                    &PredefinedMenuItem::separator(handle)?,
                     &check_for_updates,
-                    &MenuItem::separator(handle)?,
-                    &MenuItem::services(handle)?,
-                    &MenuItem::separator(handle)?,
-                    &MenuItem::hide(handle)?,
-                    &MenuItem::hide_others(handle)?,
-                    &MenuItem::show_all(handle)?,
-                    &MenuItem::separator(handle)?,
-                    &MenuItem::quit(handle)?,
+                    &PredefinedMenuItem::separator(handle)?,
+                    &PredefinedMenuItem::services(handle, None)?,
+                    &PredefinedMenuItem::separator(handle)?,
+                    &PredefinedMenuItem::hide(handle, None)?,
+                    &PredefinedMenuItem::hide_others(handle, None)?,
+                    &PredefinedMenuItem::show_all(handle, None)?,
+                    &PredefinedMenuItem::separator(handle)?,
+                    &PredefinedMenuItem::quit(handle, None)?,
                 ],
             )?;
 
@@ -676,13 +676,13 @@ pub fn run() {
                 "Edit",
                 true,
                 &[
-                    &MenuItem::undo(handle)?,
-                    &MenuItem::redo(handle)?,
-                    &MenuItem::separator(handle)?,
-                    &MenuItem::cut(handle)?,
-                    &MenuItem::copy(handle)?,
-                    &MenuItem::paste(handle)?,
-                    &MenuItem::select_all(handle)?,
+                    &PredefinedMenuItem::undo(handle, None)?,
+                    &PredefinedMenuItem::redo(handle, None)?,
+                    &PredefinedMenuItem::separator(handle)?,
+                    &PredefinedMenuItem::cut(handle, None)?,
+                    &PredefinedMenuItem::copy(handle, None)?,
+                    &PredefinedMenuItem::paste(handle, None)?,
+                    &PredefinedMenuItem::select_all(handle, None)?,
                 ],
             )?;
 
@@ -691,10 +691,9 @@ pub fn run() {
                 "Window",
                 true,
                 &[
-                    &MenuItem::minimize(handle)?,
-                    &MenuItem::zoom(handle)?,
-                    &MenuItem::separator(handle)?,
-                    &MenuItem::enter_full_screen(handle)?,
+                    &PredefinedMenuItem::minimize(handle, None)?,
+                    &PredefinedMenuItem::separator(handle)?,
+                    &PredefinedMenuItem::fullscreen(handle, None)?,
                 ],
             )?;
 
