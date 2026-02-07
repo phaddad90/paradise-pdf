@@ -5,7 +5,7 @@ import * as pdfjs from "pdfjs-dist";
 import { FileEntry, PageMetadata, PageAction } from "../types";
 
 // Setup worker
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
 interface DraggablePage {
     id: string; // unique id for dragging
@@ -37,6 +37,7 @@ export function PdfOrganiser({
     const [pages, setPages] = useState<DraggablePage[]>([]);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [status, setStatus] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
 
     const file = files[0];
@@ -171,7 +172,7 @@ export function PdfOrganiser({
 
         if (!outputPath) return;
 
-        setLoading(true);
+        setSaving(true);
         setStatus({ type: "info", text: "Saving your document..." });
 
         try {
@@ -189,125 +190,225 @@ export function PdfOrganiser({
         } catch (e) {
             setStatus({ type: "error", text: `Failed to save: ${e}` });
         } finally {
-            setLoading(false);
+            setSaving(false);
         }
     };
 
     return (
         <div className="tool-container">
-            <div className="tool-header">
-                <h2>PDF Organiser</h2>
-                <div className="tool-controls">
-                    <select onChange={(e) => selectSpecial(e.target.value)} defaultValue="">
-                        <option value="" disabled>Select Pages...</option>
-                        <option value="all">All Pages</option>
-                        <option value="none">None</option>
-                        <option value="even">Even Pages</option>
-                        <option value="odd">Odd Pages</option>
-                        <option value="landscape">Landscape Pages</option>
-                        <option value="portrait">Portrait Pages</option>
-                    </select>
-                    <button onClick={insertBlank} className="btn-secondary">Insert Blank</button>
-                    <button onClick={deleteSelected} className="btn-danger" disabled={selectedIds.size === 0}>
-                        Delete ({selectedIds.size})
-                    </button>
-                    <button onClick={saveChanges} className="btn-primary" disabled={pages.length === 0 || loading}>
-                        {loading ? "Saving..." : "Save Changes"}
-                    </button>
-                    <button onClick={onReset} className="btn-secondary">Reset</button>
-                </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <h2 className="tool-title" style={{ margin: 0 }}>PDF Organiser</h2>
+                {file && (
+                    <div className="tool-controls" style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={onReset} className="btn btn-secondary">Reset</button>
+                    </div>
+                )}
             </div>
 
             {!file ? (
-                <div
-                    className={`drop-zone ${dragOver ? "active" : ""}`}
-                    onDrop={onDrop}
-                    onDragOver={onDragOver}
-                    onDragLeave={onDragLeave}
-                    onClick={onPickFiles}
-                >
-                    <p>Drop a PDF here to start organising</p>
-                </div>
+                <section className="section">
+                    <div
+                        className={`drop-zone ${dragOver ? "drag-over" : ""}`}
+                        onDrop={onDrop}
+                        onDragOver={onDragOver}
+                        onDragLeave={onDragLeave}
+                        onClick={onPickFiles}
+                    >
+                        <p className="primary">Drop a PDF here to start organising</p>
+                        <p>or click to select</p>
+                    </div>
+                </section>
             ) : (
-                <div className="organise-grid">
-                    {pages.map((page, idx) => (
-                        <div
-                            key={page.id}
-                            className={`page-thumb ${selectedIds.has(page.id) ? "selected" : ""} ${page.type === "blank" ? "blank" : ""}`}
-                            onClick={(e) => toggleSelection(page.id, e.shiftKey || e.metaKey)}
-                            draggable
-                            onDragStart={() => onDragStart(idx)}
-                            onDragOver={(e) => onDragOverLocal(e, idx)}
-                        >
-                            {page.type === "existing" ? (
-                                <img src={page.previewUrl} alt={`Page ${page.page_number}`} />
-                            ) : (
-                                <div className="blank-placeholder">Blank Page</div>
-                            )}
-                            <div className="page-label">{idx + 1}</div>
+                <>
+                    <section className="section" style={{ background: 'rgba(255,255,255,0.5)', padding: 16, borderRadius: 'var(--radius)', border: '1px solid var(--border)', marginBottom: 20 }}>
+                        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <select
+                                className="input"
+                                style={{ width: 'auto', minWidth: 160 }}
+                                onChange={(e) => selectSpecial(e.target.value)}
+                                defaultValue=""
+                            >
+                                <option value="" disabled>Select Pages...</option>
+                                <option value="all">All Pages</option>
+                                <option value="none">None</option>
+                                <option value="even">Even Pages</option>
+                                <option value="odd">Odd Pages</option>
+                                <option value="landscape">Landscape Pages</option>
+                                <option value="portrait">Portrait Pages</option>
+                            </select>
+
+                            <button onClick={insertBlank} className="btn btn-secondary">
+                                <span style={{ marginRight: 4 }}>+</span> Blank
+                            </button>
+
+                            <button
+                                onClick={deleteSelected}
+                                className="btn"
+                                style={{
+                                    background: selectedIds.size > 0 ? 'rgba(220, 38, 38, 0.1)' : 'var(--surface)',
+                                    color: selectedIds.size > 0 ? 'var(--error)' : 'var(--text-secondary)',
+                                    border: `1px solid ${selectedIds.size > 0 ? 'rgba(220, 38, 38, 0.2)' : 'var(--border)'}`
+                                }}
+                                disabled={selectedIds.size === 0}
+                            >
+                                Delete ({selectedIds.size})
+                            </button>
+
+                            <div style={{ flex: 1 }} />
+
+                            <button
+                                onClick={saveChanges}
+                                className="btn btn-primary"
+                                disabled={pages.length === 0 || saving || loading}
+                            >
+                                {saving ? "Saving..." : "Save Changes"}
+                            </button>
                         </div>
-                    ))}
-                </div>
+                    </section>
+
+                    {loading ? (
+                        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-secondary)' }}>
+                            <div className="loading-spinner" style={{ marginBottom: 12 }}>⌛</div>
+                            Loading Previews...
+                        </div>
+                    ) : (
+                        <div className="organise-grid">
+                            {pages.map((page, idx) => (
+                                <div
+                                    key={page.id}
+                                    className={`page-thumb ${selectedIds.has(page.id) ? "selected" : ""} ${page.type === "blank" ? "blank" : ""}`}
+                                    onClick={(e) => toggleSelection(page.id, e.shiftKey || e.metaKey)}
+                                    draggable
+                                    onDragStart={() => onDragStart(idx)}
+                                    onDragOver={(e) => onDragOverLocal(e, idx)}
+                                >
+                                    <div className="thumb-container">
+                                        {page.type === "existing" ? (
+                                            <img src={page.previewUrl} alt={`Page ${page.page_number}`} />
+                                        ) : (
+                                            <div className="blank-placeholder">
+                                                <div style={{ opacity: 0.3, fontSize: '24px' }}>📄</div>
+                                                <span>Blank</span>
+                                            </div>
+                                        )}
+                                        <div className="page-number-badge">{idx + 1}</div>
+                                        {selectedIds.has(page.id) && <div className="selection-check">✓</div>}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </>
             )}
 
-            {status && <div className={`status-message ${status.type}`}>{status.text}</div>}
+            {status && <div className={`status ${status.type}`} style={{ marginTop: 20 }}>{status.text}</div>}
 
             <style>{`
         .organise-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
           gap: 20px;
-          padding: 20px;
-          background: #f8f9fa;
-          border-radius: 8px;
-          max-height: 60vh;
+          padding: 24px;
+          background: rgba(255, 255, 255, 0.4);
+          border: 1px solid var(--border);
+          border-radius: var(--radius);
+          max-height: 50vh;
           overflow-y: auto;
+          box-shadow: inset 0 2px 8px rgba(0,0,0,0.05);
         }
+        
         .page-thumb {
-          position: relative;
-          border: 2px solid transparent;
-          border-radius: 4px;
-          padding: 4px;
-          background: white;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
           cursor: pointer;
-          transition: transform 0.2s;
+          transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.1), filter 0.2s;
         }
+        
         .page-thumb:hover {
-          transform: translateY(-2px);
+          transform: translateY(-4px);
         }
-        .page-thumb.selected {
-          border-color: #007aff;
-          background: #eef6ff;
+        
+        .thumb-container {
+          position: relative;
+          background: white;
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          padding: 6px;
+          box-shadow: var(--shadow-soft);
+          aspect-ratio: 0.75;
+          display: flex;
+          flex-direction: column;
         }
-        .page-thumb img {
+        
+        .page-thumb.selected .thumb-container {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 2px var(--accent), var(--shadow);
+          background: var(--bg-subtle);
+        }
+        
+        .thumb-container img {
           width: 100%;
-          height: auto;
-          display: block;
+          height: 100%;
+          object-fit: contain;
+          border-radius: 4px;
         }
+        
         .blank-placeholder {
-          width: 100%;
-          aspect-ratio: 1 / 1.414;
-          background: #ddd;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          background: #f1f5f9;
+          border: 1px dashed var(--border);
+          border-radius: 4px;
+          color: var(--text-secondary);
+          font-size: 11px;
+          gap: 4px;
+        }
+        
+        .page-number-badge {
+          position: absolute;
+          top: -8px;
+          left: -8px;
+          background: var(--text);
+          color: white;
+          width: 20px;
+          height: 20px;
+          border-radius: 10px;
+          font-size: 10px;
+          font-weight: 700;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 0.8rem;
-          color: #666;
-          border: 1px dashed #999;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          z-index: 10;
         }
-        .page-label {
-          margin-top: 4px;
-          text-align: center;
-          font-size: 0.75rem;
-          color: #666;
-        }
-        .btn-danger {
-          background: #ff3b30;
+        
+        .selection-check {
+          position: absolute;
+          top: -8px;
+          right: -8px;
+          background: var(--accent);
           color: white;
+          width: 20px;
+          height: 20px;
+          border-radius: 10px;
+          font-size: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+          z-index: 10;
         }
-        .btn-danger:disabled {
-          background: #ff3b3055;
+
+        .loading-spinner {
+          display: inline-block;
+          animation: spin 2s linear infinite;
+          font-size: 24px;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}</style>
         </div>
