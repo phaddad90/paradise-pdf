@@ -647,6 +647,64 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_localhost::Builder::new(LOCALHOST_PORT).build())
+        .menu(|handle| {
+            use tauri::menu::{Menu, MenuItem, Submenu, IsMenuItem};
+            
+            let check_for_updates = MenuItem::with_id(handle, "check-for-updates", "Check for Updates...", true, None::<&str>)?;
+            
+            let app_menu = Submenu::with_items(
+                handle,
+                "Paradise PDF",
+                true,
+                &[
+                    &MenuItem::about(handle, None, None)?,
+                    &MenuItem::separator(handle)?,
+                    &check_for_updates,
+                    &MenuItem::separator(handle)?,
+                    &MenuItem::services(handle)?,
+                    &MenuItem::separator(handle)?,
+                    &MenuItem::hide(handle)?,
+                    &MenuItem::hide_others(handle)?,
+                    &MenuItem::show_all(handle)?,
+                    &MenuItem::separator(handle)?,
+                    &MenuItem::quit(handle)?,
+                ],
+            )?;
+
+            let edit_menu = Submenu::with_items(
+                handle,
+                "Edit",
+                true,
+                &[
+                    &MenuItem::undo(handle)?,
+                    &MenuItem::redo(handle)?,
+                    &MenuItem::separator(handle)?,
+                    &MenuItem::cut(handle)?,
+                    &MenuItem::copy(handle)?,
+                    &MenuItem::paste(handle)?,
+                    &MenuItem::select_all(handle)?,
+                ],
+            )?;
+
+            let window_menu = Submenu::with_items(
+                handle,
+                "Window",
+                true,
+                &[
+                    &MenuItem::minimize(handle)?,
+                    &MenuItem::zoom(handle)?,
+                    &MenuItem::separator(handle)?,
+                    &MenuItem::enter_full_screen(handle)?,
+                ],
+            )?;
+
+            Menu::with_items(handle, &[&app_menu, &edit_menu, &window_menu])
+        })
+        .on_menu_event(|app, event| {
+            if event.id == "check-for-updates" {
+                let _ = app.emit("check-for-updates", ());
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             list_files_from_paths,
             validate_template,

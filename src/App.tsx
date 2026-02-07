@@ -31,28 +31,46 @@ function App() {
     return "pdf-bulk-renaming";
   });
 
-  useEffect(() => {
-    const checkUpdate = async () => {
-      try {
-        const update = await check();
-        if (update?.available) {
-          const yes = await ask(`Update to ${update.version} is available!\n\n${update.body}`, {
-            title: 'Update Available',
-            kind: 'info',
-            okLabel: 'Update',
-            cancelLabel: 'Cancel'
-          });
-          if (yes) {
-            await update.downloadAndInstall();
-            await relaunch();
-          }
+  const checkForUpdates = useCallback(async (manual = false) => {
+    try {
+      const update = await check();
+      if (update?.available) {
+        const yes = await ask(`Update to ${update.version} is available!\n\n${update.body}`, {
+          title: 'Update Available',
+          kind: 'info',
+          okLabel: 'Update',
+          cancelLabel: 'Cancel'
+        });
+        if (yes) {
+          await update.downloadAndInstall();
+          await relaunch();
         }
-      } catch (error) {
-        console.error('Failed to check for updates:', error);
+      } else if (manual) {
+        await ask('You are already running the latest version of Paradise PDF.', {
+          title: 'Up to Date',
+          kind: 'info',
+          okLabel: 'OK'
+        });
       }
-    };
-    checkUpdate();
+    } catch (error) {
+      console.error('Failed to check for updates:', error);
+      if (manual) {
+        await ask(`Failed to check for updates: ${error}`, {
+          title: 'Update Check Failed',
+          kind: 'error',
+          okLabel: 'OK'
+        });
+      }
+    }
   }, []);
+
+  useEffect(() => {
+    checkForUpdates();
+    const unlisten = listen("check-for-updates", () => checkForUpdates(true));
+    return () => {
+      unlisten.then(f => f());
+    };
+  }, [checkForUpdates]);
 
   useEffect(() => {
     localStorage.setItem("lastActiveTool", currentTool);
