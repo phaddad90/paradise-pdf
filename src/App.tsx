@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, ask } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { FileEntry } from "./types";
 import { Logo } from "./components/Logo";
 import { BulkRenamer } from "./components/BulkRenamer";
@@ -28,6 +30,29 @@ function App() {
     }
     return "pdf-bulk-renaming";
   });
+
+  useEffect(() => {
+    const checkUpdate = async () => {
+      try {
+        const update = await check();
+        if (update?.available) {
+          const yes = await ask(`Update to ${update.version} is available!\n\n${update.body}`, {
+            title: 'Update Available',
+            kind: 'info',
+            okLabel: 'Update',
+            cancelLabel: 'Cancel'
+          });
+          if (yes) {
+            await update.downloadAndInstall();
+            await relaunch();
+          }
+        }
+      } catch (error) {
+        console.error('Failed to check for updates:', error);
+      }
+    };
+    checkUpdate();
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("lastActiveTool", currentTool);

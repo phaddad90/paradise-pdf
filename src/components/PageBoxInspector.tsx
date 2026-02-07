@@ -125,6 +125,9 @@ export function PageBoxInspector({
                     onClick={onPickFiles}
                     role="button"
                     tabIndex={0}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") onPickFiles();
+                    }}
                 >
                     {activeFile ? (
                         <p className="primary">Inspecting: <strong>{activeFile.name}</strong></p>

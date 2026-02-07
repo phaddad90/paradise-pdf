@@ -457,7 +457,6 @@ fn split_pdf(
         saved_paths.push(out_path.to_string_lossy().to_string());
     }
 
-    // ... (previous code implementation - splitting PDF)
     Ok(saved_paths)
 }
 
@@ -644,6 +643,8 @@ fn rotate_pdf_pages(path: String, rotations: std::collections::HashMap<u32, i32>
 pub fn run() {
     const LOCALHOST_PORT: u16 = 1420;
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_localhost::Builder::new(LOCALHOST_PORT).build())
         .invoke_handler(tauri::generate_handler![

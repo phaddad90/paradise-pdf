@@ -1,9 +1,14 @@
 {
   "identifier": "main-capability",
   "description": "Main window capabilities",
-  "windows": ["main"],
+  "windows": [
+    "main"
+  ],
   "remote": {
-    "urls": ["http://localhost:1420", "http://localhost:1420/*"]
+    "urls": [
+      "http://localhost:1420",
+      "http://localhost:1420/*"
+    ]
   },
   "permissions": [
     "core:default",
@@ -11,6 +16,7 @@
     "dialog:allow-open",
     "dialog:allow-message",
     "dialog:allow-ask",
-    "dialog:allow-confirm"
+    "dialog:allow-confirm",
+    "updater:default"
   ]
 }

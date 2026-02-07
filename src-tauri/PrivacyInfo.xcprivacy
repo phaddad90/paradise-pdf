@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Privacy Manifest for macOS 14+ compliance -->
+	
+	<!-- API Types Accessed -->
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<!-- C617.1: Accessing file modification times for display/sorting -->
+				<string>C617.1</string>
+			</array>
+		</dict>
+	</array>
+	
+	<!-- Data Collection -->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<!-- Empty: We do not collect or transmit user data -->
+	</array>
+	
+	<!-- Tracking -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	
+	<!-- Tracking Domains (none) -->
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+</dict>
+</plist>

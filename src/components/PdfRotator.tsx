@@ -194,6 +194,11 @@ export function PdfRotator({
                     onDragOver={onDragOver}
                     onDragLeave={onDragLeave}
                     onClick={onPickFiles}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") onPickFiles();
+                    }}
                 >
                     {activeFile ? (
                         <p className="primary">Rotating: <strong>{activeFile.name}</strong></p>
@@ -276,7 +281,7 @@ export function PdfRotator({
             <div className="actions">
                 <button
                     className="btn btn-primary"
-                    disabled={!activeFile || Object.values(rotations).every(r => r === 0)}
+                    disabled={!activeFile || Object.keys(rotations).length === 0 || Object.values(rotations).every(r => r % 360 === 0)}
                     onClick={handleSave}
                 >
                     Save Rotation

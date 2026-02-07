@@ -1,6 +1,6 @@
 {
   "productName": "Paradise PDF",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "identifier": "com.paradisepdf",
   "build": {
     "frontendDist": "../dist",
@@ -33,5 +33,13 @@
     "shortDescription": "PDF tools: bulk rename, and more",
     "longDescription": "Paradise PDF – bulk rename and other PDF tools. Bright, simple, Mac-native.",
     "category": "Utility"
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "YOUR_PUBLIC_KEY_HERE",
+      "endpoints": [
+        "https://github.com/USER/REPO/releases/latest/download/latest.json"
+      ]
+    }
   }
 }
