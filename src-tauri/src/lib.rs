@@ -703,10 +703,10 @@ fn apply_pdf_organisation(
     let mut out_doc = Document::with_version("1.7");
     let pages_id = out_doc.new_object_id();
     let catalog_id = out_doc.add_object(dictionary! {
-        "Type" => "Catalog",
-        "Pages" => lopdf::Object::Reference(pages_id),
+        b"Type" => "Catalog",
+        b"Pages" => lopdf::Object::Reference(pages_id),
     });
-    out_doc.trailer.set("Root", lopdf::Object::Reference(catalog_id));
+    out_doc.trailer.set(b"Root", lopdf::Object::Reference(catalog_id));
 
     let mut out_page_ids = Vec::new();
     let mut clean_src = src_doc.clone();
@@ -721,17 +721,17 @@ fn apply_pdf_organisation(
     for action in actions {
         match action {
             PageAction::Existing { page_number } => {
-                if let Some(&page_id) = mapping.get(&page_number) {
+                if let Some(&page_id) = mapping.get(&(page_number as u32)) {
                     out_page_ids.push(page_id);
                 }
             }
             PageAction::Blank => {
                 let blank_id = out_doc.add_object(dictionary! {
-                    "Type" => "Page",
-                    "Parent" => lopdf::Object::Reference(pages_id),
-                    "MediaBox" => vec![0.into(), 0.into(), 595.28.into(), 841.89.into()],
-                    "Resources" => dictionary! {},
-                    "Contents" => vec![] as Vec<lopdf::Object>,
+                    b"Type" => "Page",
+                    b"Parent" => lopdf::Object::Reference(pages_id),
+                    b"MediaBox" => vec![0.into(), 0.into(), 595.28.into(), 841.89.into()],
+                    b"Resources" => dictionary! {},
+                    b"Contents" => vec![] as Vec<lopdf::Object>,
                 });
                 out_page_ids.push(blank_id);
             }
@@ -739,15 +739,15 @@ fn apply_pdf_organisation(
     }
 
     let pages_dict = dictionary! {
-        "Type" => "Pages",
-        "Count" => out_page_ids.len() as i64,
-        "Kids" => out_page_ids.iter().map(|&id| lopdf::Object::Reference(id)).collect::<Vec<_>>(),
+        b"Type" => "Pages",
+        b"Count" => out_page_ids.len() as i64,
+        b"Kids" => out_page_ids.iter().map(|&id| lopdf::Object::Reference(id)).collect::<Vec<_>>(),
     };
     out_doc.objects.insert(pages_id, lopdf::Object::Dictionary(pages_dict));
 
     for &page_id in &out_page_ids {
         if let Ok(p_dict) = out_doc.get_object_mut(page_id).and_then(|o| o.as_dict_mut()) {
-            p_dict.set("Parent", lopdf::Object::Reference(pages_id));
+            p_dict.set(b"Parent", lopdf::Object::Reference(pages_id));
         }
     }
 
