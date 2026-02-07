@@ -1,6 +1,6 @@
 {
   "productName": "Paradise PDF",
-  "version": "2.2.9",
+  "version": "2.2.10",
   "identifier": "com.paradisepdf",
   "build": {
     "frontendDist": "../dist",
@@ -30,6 +30,7 @@
       "entitlements": "./Entitlements.plist",
       "signingIdentity": "-"
     },
+    "createUpdaterArtifacts": true,
     "shortDescription": "PDF tools: bulk rename, and more",
     "longDescription": "Paradise PDF – bulk rename and other PDF tools. Bright, simple, Mac-native.",
     "category": "Utility"

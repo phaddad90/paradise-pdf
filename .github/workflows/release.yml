@@ -47,6 +47,7 @@ jobs:
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: false
           prerelease: false
+          includeUpdaterJson: true
           
       - name: List Release Assets (Debug)
         run: ls -R src-tauri/target/release/bundle/ || true
