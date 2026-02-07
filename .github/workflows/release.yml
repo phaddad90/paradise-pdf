@@ -35,17 +35,19 @@ jobs:
       - name: install frontend dependencies
         run: npm install
         
-      - uses: tauri-apps/tauri-action@v0
+      - name: Build and Release
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Tauri updater signing (separate from Apple code signing)
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
           releaseName: 'Paradise PDF v__VERSION__'
           releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
-          args: --target aarch64-apple-darwin
+          
+      - name: List Release Assets (Debug)
+        run: ls -R src-tauri/target/release/bundle/ || true
 
