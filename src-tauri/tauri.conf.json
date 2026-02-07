@@ -1,6 +1,6 @@
 {
   "productName": "Paradise PDF",
-  "version": "2.2.7",
+  "version": "2.2.8",
   "identifier": "com.paradisepdf",
   "build": {
     "frontendDist": "../dist",
@@ -36,6 +36,7 @@
   },
   "plugins": {
     "updater": {
+      "active": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDdFMUMwQTI0Mjc4Mjc3RDMKUldUVGQ0SW5KQW9jZm1FVUh5WTYzWjQ5dU9BMk82ZVFHeG05S1FVZmEvczlHL0x6bStMdmJSMkIK",
       "endpoints": [
         "https://github.com/phaddad90/paradise-pdf/releases/latest/download/latest.json"
