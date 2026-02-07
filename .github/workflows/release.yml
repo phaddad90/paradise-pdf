@@ -1,8 +1,6 @@
 name: Release
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -37,26 +35,13 @@ jobs:
       - name: install frontend dependencies
         run: npm install
         
-      - name: Check Secret Presence
-        run: |
-          if [ -z "$TOKEN" ]; then
-            echo "Error: PUBLIC_REPO_PAT is empty or not found."
-            exit 1
-          else
-            echo "PUBLIC_REPO_PAT is present (length: ${#TOKEN})"
-          fi
-        env:
-          TOKEN: ${{ secrets.PUBLIC_REPO_PAT }}
-          
       - name: Build and Release
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.PUBLIC_REPO_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          owner: phaddad90
-          repo: paradise-pdf
           tagName: v__VERSION__
           releaseName: 'Paradise PDF v__VERSION__'
           releaseBody: 'See the assets to download this version and install.'
@@ -66,4 +51,3 @@ jobs:
           
       - name: List Release Assets (Debug)
         run: ls -R src-tauri/target/release/bundle/ || true
-
