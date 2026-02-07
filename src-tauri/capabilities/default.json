@@ -20,6 +20,6 @@
     "updater:allow-check",
     "updater:allow-download",
     "updater:allow-install",
-    "process:allow-relaunch"
+    "process:allow-restart"
   ]
 }

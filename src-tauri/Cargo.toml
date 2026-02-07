@@ -1,6 +1,6 @@
 [package]
 name = "mac-batch-renamer"
-version = "2.2.10"
+version = "2.2.11"
 description = "Batch rename files with a configurable naming pattern"
 authors = ["Peter Haddad"]
 edition = "2021"
