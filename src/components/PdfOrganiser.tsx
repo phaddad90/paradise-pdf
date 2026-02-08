@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { FileEntry, PageAction, PdfPage } from '../types';
+import { PdfThumbnail } from './PdfThumbnail';
 import {
     DndContext,
     closestCenter,
@@ -42,13 +43,22 @@ interface ContextMenuState {
 }
 
 // Sortable Item Component
-function SortableItem({ page, id, selected, onContextMenu, onClick, isOverlay = false }: {
+function SortableItem({
+    page,
+    id,
+    selected,
+    onContextMenu,
+    onClick,
+    isOverlay = false,
+    filePath
+}: {
     page: PdfPage;
     id: string;
     selected: boolean;
     onContextMenu: (e: React.MouseEvent, pageId: string, index: number) => void;
     onClick: (e: React.MouseEvent, pageId: string, idx: number) => void;
     isOverlay?: boolean;
+    filePath?: string;
 }) {
     const {
         attributes,
@@ -74,15 +84,17 @@ function SortableItem({ page, id, selected, onContextMenu, onClick, isOverlay = 
             {...attributes}
             {...listeners}
             className={`page-thumb ${selected ? 'selected' : ''} ${isOverlay ? 'dragging' : ''}`}
-            onClick={(e) => onClick(e, id, page.page_number ? page.page_number - 1 : -1)} // Dummy index for click, actual index handled in parent
-            onContextMenu={(e) => onContextMenu(e, id, -1)} // Pass dummy index, real one injected in parent map
+            onClick={(e) => onClick(e, id, page.page_number ? page.page_number - 1 : -1)}
+            onContextMenu={(e) => onContextMenu(e, id, -1)}
         >
             <div className="thumb-content">
                 {page.type === "blank" ? (
                     <div className="blank-page-indicator">Blank</div>
                 ) : (
-                    page.preview ? (
-                        <img src={page.preview} alt={`Page ${page.page_number}`} className="page-img" />
+                    filePath && page.page_number ? (
+                        <div className="page-img-container" style={{ width: '100%', height: '100%' }}>
+                            <PdfThumbnail path={filePath} pageNumber={page.page_number} />
+                        </div>
                     ) : (
                         <div className="page-placeholder">
                             <span>{page.page_number}</span>
@@ -111,6 +123,7 @@ export default function PdfOrganiser({
     const [saving, setSaving] = useState(false);
     const [loading, setLoading] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [lastSelectedId, setLastSelectedId] = useState<string | null>(null); // Anchor for Shift+Click
     const [activeId, setActiveId] = useState<string | null>(null);
 
     // Load the first file from props
@@ -172,6 +185,7 @@ export default function PdfOrganiser({
             setPages(pageList);
             setStatus({ type: "info", text: "PDF loaded successfully" });
             setSelectedIds(new Set());
+            setLastSelectedId(null);
         } catch (e) {
             setStatus({ type: "error", text: `Failed to load PDF: ${e}` });
         } finally {
@@ -201,24 +215,52 @@ export default function PdfOrganiser({
 
     // --- Selection & Actions ---
 
-    const toggleSelection = (id: string, multi: boolean) => {
-        const newSet = new Set(multi ? selectedIds : []);
-        if (newSet.has(id)) {
-            newSet.delete(id);
-        } else {
-            newSet.add(id);
+    const handleSelection = (e: React.MouseEvent, id: string, _index: number) => {
+        e.stopPropagation();
+
+        // 1. Command/Ctrl Click (Toggle)
+        if (e.metaKey || e.ctrlKey) {
+            const newSet = new Set(selectedIds);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+                setLastSelectedId(id);
+            }
+            setSelectedIds(newSet);
+            return;
         }
-        setSelectedIds(newSet);
+
+        // 2. Shift Click (Range)
+        if (e.shiftKey && lastSelectedId) {
+            const lastIdx = pages.findIndex(p => p.id === lastSelectedId);
+            const currentIdx = pages.findIndex(p => p.id === id);
+
+            if (lastIdx !== -1 && currentIdx !== -1) {
+                const start = Math.min(lastIdx, currentIdx);
+                const end = Math.max(lastIdx, currentIdx);
+
+                const newSet = new Set(selectedIds);
+                for (let i = start; i <= end; i++) {
+                    newSet.add(pages[i].id);
+                }
+                setSelectedIds(newSet);
+                return;
+            }
+        }
+
+        // 3. Simple Click (Select Single)
+        setSelectedIds(new Set([id]));
+        setLastSelectedId(id);
     };
 
     const insertBlank = () => {
         const newBlank: PdfPage = { type: "blank", id: crypto.randomUUID() };
         setPages((prev) => {
             const next = [...prev];
-            // Insert after the last selected item, or at the end
             let insertIdx = prev.length;
             if (selectedIds.size > 0) {
-                // Find the highest index selected
+                // Find index of the LAST selected item
                 const indices = prev
                     .map((p, i) => selectedIds.has(p.id) ? i : -1)
                     .filter(i => i !== -1);
@@ -232,6 +274,7 @@ export default function PdfOrganiser({
     const deleteSelected = () => {
         setPages(prev => prev.filter(p => !selectedIds.has(p.id)));
         setSelectedIds(new Set());
+        setLastSelectedId(null);
     };
 
     // --- Context Menu Handlers ---
@@ -242,9 +285,10 @@ export default function PdfOrganiser({
         const x = e.clientX;
         const y = e.clientY;
 
-        // Select the item if not already selected
+        // Select the item if not already selected (Finder style)
         if (!selectedIds.has(pageId)) {
             setSelectedIds(new Set([pageId]));
+            setLastSelectedId(pageId);
         }
 
         setContextMenu({
@@ -269,11 +313,21 @@ export default function PdfOrganiser({
                     next.splice(contextMenu.index + 1, 0, { type: 'blank', id: crypto.randomUUID() });
                     break;
                 case 'delete':
-                    next.splice(contextMenu.index, 1);
+                    // If multiple items are selected and the target is part of selection, delete all
+                    if (selectedIds.has(contextMenu.pageId!)) {
+                        return next.filter(p => !selectedIds.has(p.id));
+                    } else {
+                        next.splice(contextMenu.index, 1);
+                    }
                     break;
             }
             return next;
         });
+
+        if (action === 'delete') {
+            setSelectedIds(new Set());
+            setLastSelectedId(null);
+        }
         setContextMenu(prev => ({ ...prev, visible: false }));
     };
 
@@ -309,8 +363,8 @@ export default function PdfOrganiser({
     };
 
     return (
-        <div className="tool-container">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div className="tool-container" onClick={() => { setSelectedIds(new Set()); setLastSelectedId(null); }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }} onClick={e => e.stopPropagation()}>
                 <h2 className="tool-title" style={{ margin: 0 }}>PDF Organiser</h2>
                 {file && (
                     <div className="tool-controls" style={{ display: 'flex', gap: 8 }}>
@@ -320,7 +374,7 @@ export default function PdfOrganiser({
             </div>
 
             {!file ? (
-                <section className="section">
+                <section className="section" onClick={e => e.stopPropagation()}>
                     {loading ? (
                         <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
                             Loading PDF...
@@ -380,15 +434,15 @@ export default function PdfOrganiser({
                                 strategy={rectSortingStrategy}
                             >
                                 {pages.map((page, idx) => (
-                                    <div key={page.id} onClick={(e) => toggleSelection(page.id, e.metaKey || e.ctrlKey)}>
-                                        <SortableItem
-                                            id={page.id}
-                                            page={page}
-                                            selected={selectedIds.has(page.id)}
-                                            onContextMenu={(e, id) => handleContextMenu(e, id, idx)}
-                                            onClick={() => { }} // Handled by wrapper div for selection logic
-                                        />
-                                    </div>
+                                    <SortableItem
+                                        key={page.id}
+                                        id={page.id}
+                                        page={page}
+                                        selected={selectedIds.has(page.id)}
+                                        onClick={handleSelection}
+                                        onContextMenu={(e, id) => handleContextMenu(e, id, idx)}
+                                        filePath={file.path}
+                                    />
                                 ))}
                             </SortableContext>
                         </div>
