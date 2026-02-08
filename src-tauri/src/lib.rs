@@ -606,6 +606,90 @@ fn read_pdf_buffer(path: String) -> AppResult<Vec<u8>> {
 }
 
 #[tauri::command]
+fn mix_pdfs(paths: Vec<String>, output_path: String) -> AppResult<()> {
+    if paths.is_empty() {
+        return Err(AppError::Validation("No files to mix.".to_string()));
+    }
+
+    // 1. Initialize an empty document to hold everything
+    let mut final_doc = Document::new();
+    final_doc.version = "1.7".to_string();
+    
+    // We need to track page IDs for each document to interleave them later
+    let mut docs_pages: Vec<Vec<lopdf::ObjectId>> = Vec::new();
+
+    for path_str in paths {
+        let p = Path::new(&path_str);
+        if !p.exists() {
+             return Err(AppError::Path(format!("File not found: {}", path_str)));
+        }
+        let mut doc = Document::load(p)?;
+
+        // Renumber objects to avoid collision with what's already in final_doc
+        doc.renumber_objects_with(final_doc.max_id);
+        final_doc.max_id = doc.max_id;
+
+        // Get the renumbered page IDs
+        // doc.get_pages() returns BTreeMap<u32, ObjectId>, values are the IDs
+        let pages: Vec<lopdf::ObjectId> = doc.get_pages().values().cloned().collect();
+        docs_pages.push(pages);
+
+        // Merge objects into final_doc
+        for (id, obj) in doc.objects {
+            final_doc.objects.insert(id, obj);
+        }
+    }
+
+    // 2. Interleave the pages
+    let mut final_page_ids = Vec::new();
+    let max_pages = docs_pages.iter().map(|v| v.len()).max().unwrap_or(0);
+
+    for i in 0..max_pages {
+        for pages in &docs_pages {
+            if let Some(&page_id) = pages.get(i) {
+                final_page_ids.push(page_id);
+            }
+        }
+    }
+
+    // 3. Create a new "Pages" tree root
+    let pages_root_id = final_doc.new_object_id();
+
+    // 4. Update all pages to point to this new parent
+    for &page_id in &final_page_ids {
+        if let Ok(page_dict) = final_doc.get_object_mut(page_id).and_then(|o| o.as_dict_mut()) {
+            page_dict.set(b"Parent", lopdf::Object::Reference(pages_root_id));
+        }
+    }
+
+    // 5. Create the Pages dictionary
+    let pages_dict = dictionary! {
+        b"Type" => "Pages",
+        b"Count" => final_page_ids.len() as i64,
+        b"Kids" => final_page_ids.into_iter().map(lopdf::Object::Reference).collect::<Vec<_>>(),
+    };
+
+    final_doc.objects.insert(pages_root_id, lopdf::Object::Dictionary(pages_dict));
+
+    // 6. Create the Catalog
+    let catalog_id = final_doc.new_object_id();
+    let catalog = dictionary! {
+        b"Type" => "Catalog",
+        b"Pages" => lopdf::Object::Reference(pages_root_id),
+    };
+    final_doc.objects.insert(catalog_id, lopdf::Object::Dictionary(catalog));
+
+    // 7. Set the Trailer
+    final_doc.trailer.set(b"Root", lopdf::Object::Reference(catalog_id));
+
+    // 8. Prune and Save
+    final_doc.prune_objects();
+    final_doc.save(output_path)?;
+
+    Ok(())
+}
+
+#[tauri::command]
 fn rotate_pdf_pages(path: String, rotations: std::collections::HashMap<u32, i32>) -> AppResult<()> {
     let path = Path::new(&path);
     if !path.is_file() {
@@ -871,6 +955,7 @@ pub fn run() {
             read_pdf_buffer,
             get_organiser_pdf_metadata,
             apply_pdf_organisation,
+            mix_pdfs,
         ])
         .setup(move |app| {
             let url: tauri::Url = format!("http://localhost:{}", LOCALHOST_PORT).parse().unwrap();

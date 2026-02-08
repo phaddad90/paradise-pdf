@@ -12,8 +12,9 @@ import { PdfMerger } from "./components/PdfMerger";
 import { PageBoxInspector } from "./components/PageBoxInspector";
 import { PdfRotator } from "./components/PdfRotator";
 import PdfOrganiser from "./components/PdfOrganiser";
+import { PdfMixer } from "./components/PdfMixer";
 
-type ToolId = "pdf-bulk-renaming" | "pdf-splitter" | "pdf-merger" | "page-box-inspector" | "pdf-rotator" | "pdf-organiser";
+type ToolId = "pdf-bulk-renaming" | "pdf-splitter" | "pdf-merger" | "page-box-inspector" | "pdf-rotator" | "pdf-organiser" | "pdf-mixer";
 
 function isPdf(name: string): boolean {
   return name.toLowerCase().endsWith(".pdf");
@@ -287,6 +288,19 @@ function App() {
                   Organise PDF
                 </button>
               </li>
+              <li role="none">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={currentTool === "pdf-mixer" ? "active" : ""}
+                  onClick={() => {
+                    setCurrentTool("pdf-mixer");
+                    setToolsOpen(false);
+                  }}
+                >
+                  Alternate & Mix
+                </button>
+              </li>
             </ul>
           )}
         </div>
@@ -378,6 +392,23 @@ function App() {
             dragOver={dragOver}
             onReset={handleReset}
             setStatus={setStatus}
+          />
+        )}
+
+        {currentTool === "pdf-mixer" && (
+          <PdfMixer
+            files={files}
+            setFiles={setFiles}
+            onPickFiles={pickFiles}
+            onPickFolder={pickFolder}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            dragOver={dragOver}
+            onReset={handleReset}
+            setStatus={setStatus}
+            status={status}
+            onMixComplete={handleReset}
           />
         )}
       </main>
