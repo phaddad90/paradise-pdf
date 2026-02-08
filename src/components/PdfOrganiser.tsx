@@ -146,22 +146,78 @@ export function PdfOrganiser({
     };
 
     const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+    // Tracks where the item will be dropped: { index, position relative to index }
+    const [dropTarget, setDropTarget] = useState<{ idx: number; position: 'before' | 'after' } | null>(null);
 
-    const onDragStart = (idx: number) => {
+    /**
+     * Starts the drag operation.
+     * We track the source index (`draggedIdx`) to know what we are moving.
+     */
+    const onDragStart = (e: React.DragEvent, idx: number) => {
         setDraggedIdx(idx);
+        // Required for Firefox to allow the drag
+        e.dataTransfer.effectAllowed = "move";
     };
 
     const onDragOverLocal = (e: React.DragEvent, idx: number) => {
+        e.preventDefault(); // Necessary to allow dropping
+        e.stopPropagation();
+
+        if (draggedIdx === null || draggedIdx === idx) {
+            setDropTarget(null);
+            return;
+        }
+
+        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+        const mid = (rect.left + rect.right) / 2;
+        const position = e.clientX < mid ? 'before' : 'after';
+
+        setDropTarget({ idx, position });
+    };
+
+    const onDragLeaveLocal = () => {
+        // We defer clearing to avoid flickering when moving between children
+        // In a complex app we might use a timeout or verify relatedTarget, 
+        // but for this grid, mostly reliance on DragOver updating the target is enough.
+        // We can clear if we leave the CONTAINER, but individual items might be tricky.
+        // strictly clearing here causes flicker. Let's rely on onDragOver updating it.
+    };
+
+    const onDropLocal = (e: React.DragEvent) => {
         e.preventDefault();
-        if (draggedIdx === null || draggedIdx === idx) return;
+        e.stopPropagation();
+
+        if (draggedIdx === null || dropTarget === null) return;
+
+        const { idx, position } = dropTarget;
 
         setPages((prev) => {
             const next = [...prev];
             const [moved] = next.splice(draggedIdx, 1);
-            next.splice(idx, 0, moved);
+
+            // Adjust index because removal shifts indices
+            let insertAt = idx;
+            if (position === 'after') insertAt += 1;
+
+            // If we removed an item BEFORE the target, the target index shifted down by 1
+            if (draggedIdx < idx) {
+                insertAt -= 1;
+            } else if (draggedIdx === idx) {
+                // Should not happen due to guard, but safe fallback
+            }
+
+            next.splice(insertAt, 0, moved);
             return next;
         });
-        setDraggedIdx(idx);
+
+        setDraggedIdx(null);
+        setDropTarget(null);
+    };
+
+    // Clear drop target when dragging ends anywhere (e.g. cancelled)
+    const onDragEnd = () => {
+        setDraggedIdx(null);
+        setDropTarget(null);
     };
 
     const saveChanges = async () => {
@@ -273,15 +329,24 @@ export function PdfOrganiser({
                             Loading Previews...
                         </div>
                     ) : (
-                        <div className="organise-grid">
+                        <div className="organise-grid" onDragLeave={() => setDropTarget(null)}>
                             {pages.map((page, idx) => (
                                 <div
                                     key={page.id}
-                                    className={`page-thumb ${selectedIds.has(page.id) ? "selected" : ""} ${page.type === "blank" ? "blank" : ""}`}
+                                    className={`
+                                        page-thumb 
+                                        ${selectedIds.has(page.id) ? "selected" : ""} 
+                                        ${page.type === "blank" ? "blank" : ""}
+                                        ${draggedIdx === idx ? "dragging" : ""}
+                                        ${dropTarget?.idx === idx ? `drop-${dropTarget.position}` : ""}
+                                    `}
                                     onClick={(e) => toggleSelection(page.id, e.shiftKey || e.metaKey)}
                                     draggable
-                                    onDragStart={() => onDragStart(idx)}
+                                    onDragStart={(e) => onDragStart(e, idx)}
                                     onDragOver={(e) => onDragOverLocal(e, idx)}
+                                    // Fix: onDropLocal now takes only the event, it uses state for the target
+                                    onDrop={onDropLocal}
+                                    onDragEnd={onDragEnd}
                                 >
                                     <div className="thumb-container">
                                         {page.type === "existing" ? (
@@ -319,8 +384,39 @@ export function PdfOrganiser({
         }
         
         .page-thumb {
-          cursor: pointer;
+          cursor: grab;
           transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.1), filter 0.2s;
+          position: relative;
+        }
+
+        .page-thumb.dragging {
+            opacity: 0.4;
+            cursor: grabbing;
+        }
+
+        /* Drop indicators */
+        .page-thumb.drop-before::before {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--accent);
+            border-radius: 2px;
+            z-index: 20;
+        }
+        
+        .page-thumb.drop-after::after {
+            content: '';
+            position: absolute;
+            right: -12px;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--accent);
+            border-radius: 2px;
+            z-index: 20;
         }
         
         .page-thumb:hover {
@@ -337,6 +433,7 @@ export function PdfOrganiser({
           aspect-ratio: 0.75;
           display: flex;
           flex-direction: column;
+          pointer-events: none; /* Let clicks pass to parent */
         }
         
         .page-thumb.selected .thumb-container {
