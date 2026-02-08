@@ -109,7 +109,7 @@ function App() {
       const entries = await invoke<FileEntry[]>("list_files_from_paths", { paths });
 
       setFiles((prev) => {
-        const shouldAppend = currentTool === "pdf-merger" || currentTool === "pdf-bulk-renaming";
+        const shouldAppend = currentTool === "pdf-merger" || currentTool === "pdf-bulk-renaming" || currentTool === "pdf-mixer";
 
         if (shouldAppend) {
           const newFiles = [...prev];
@@ -127,7 +127,7 @@ function App() {
       setStatus(null);
     } catch (e) {
       setStatus({ type: "error", text: String(e) });
-      if (currentTool !== "pdf-merger" && currentTool !== "pdf-bulk-renaming") {
+      if (currentTool !== "pdf-merger" && currentTool !== "pdf-bulk-renaming" && currentTool !== "pdf-mixer") {
         setFiles([]);
       }
     }
