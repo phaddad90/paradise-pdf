@@ -690,6 +690,67 @@ fn mix_pdfs(paths: Vec<String>, output_path: String) -> AppResult<()> {
 }
 
 #[tauri::command]
+fn unlock_pdf(path: String, password: String, output_path: String) -> AppResult<()> {
+    let p = Path::new(&path);
+    if !p.is_file() {
+        return Err(AppError::Path("Path is not a file.".to_string()));
+    }
+
+    // Load with password - this decrypts the document
+    let mut doc = Document::load_with_password(p, &password)
+        .map_err(|e| AppError::Validation(format!("Failed to unlock PDF: {}. Check the password.", e)))?;
+
+    // Save the decrypted document (without encryption)
+    doc.save(&output_path)?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn protect_pdf(
+    path: String,
+    user_password: String,
+    owner_password: Option<String>,
+    output_path: String,
+) -> AppResult<()> {
+    use lopdf::encryption::{EncryptionVersion, EncryptionState, Permissions};
+    use std::convert::TryFrom;
+
+    let p = Path::new(&path);
+    if !p.is_file() {
+        return Err(AppError::Path("Path is not a file.".to_string()));
+    }
+
+    let doc = Document::load(p)?;
+
+    // Use owner password if provided, otherwise use user password for both
+    let owner_pwd = owner_password.unwrap_or_else(|| user_password.clone());
+
+    // Create encryption version with V2 (128-bit RC4, compatible with most readers)
+    let encryption_version = EncryptionVersion::V2 {
+        document: &doc,
+        owner_password: &owner_pwd,
+        user_password: &user_password,
+        key_length: 128,
+        permissions: Permissions::default(),
+    };
+
+    // Convert to EncryptionState
+    let encryption_state = EncryptionState::try_from(encryption_version)
+        .map_err(|e| AppError::Validation(format!("Failed to create encryption state: {}", e)))?;
+
+    // Clone the document and encrypt
+    let mut encrypted_doc = doc.clone();
+    encrypted_doc.encrypt(&encryption_state)
+        .map_err(|e| AppError::Validation(format!("Failed to encrypt PDF: {}", e)))?;
+
+    encrypted_doc.save(&output_path)?;
+
+    Ok(())
+}
+
+
+#[tauri::command]
 fn rotate_pdf_pages(path: String, rotations: std::collections::HashMap<u32, i32>) -> AppResult<()> {
     let path = Path::new(&path);
     if !path.is_file() {
@@ -956,6 +1017,8 @@ pub fn run() {
             get_organiser_pdf_metadata,
             apply_pdf_organisation,
             mix_pdfs,
+            unlock_pdf,
+            protect_pdf,
         ])
         .setup(move |app| {
             let url: tauri::Url = format!("http://localhost:{}", LOCALHOST_PORT).parse().unwrap();

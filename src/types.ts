@@ -49,3 +49,8 @@ export interface PdfPage {
   page_number?: number;
   preview?: string; // Data URL or path
 }
+
+export interface StatusMessage {
+  type: "success" | "error" | "info";
+  text: string;
+}
