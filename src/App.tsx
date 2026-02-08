@@ -11,7 +11,7 @@ import { PdfSplitter } from "./components/PdfSplitter";
 import { PdfMerger } from "./components/PdfMerger";
 import { PageBoxInspector } from "./components/PageBoxInspector";
 import { PdfRotator } from "./components/PdfRotator";
-import { PdfOrganiser } from "./components/PdfOrganiser";
+import PdfOrganiser from "./components/PdfOrganiser";
 
 type ToolId = "pdf-bulk-renaming" | "pdf-splitter" | "pdf-merger" | "page-box-inspector" | "pdf-rotator" | "pdf-organiser";
 
@@ -377,6 +377,7 @@ function App() {
             onDragLeave={handleDragLeave}
             dragOver={dragOver}
             onReset={handleReset}
+            setStatus={setStatus}
           />
         )}
       </main>

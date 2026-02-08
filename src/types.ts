@@ -42,3 +42,10 @@ export interface PageMetadata {
 export type PageAction =
   | { type: "existing"; page_number: number }
   | { type: "blank" };
+
+export interface PdfPage {
+  id: string; // Front-end only unique ID
+  type: "existing" | "blank";
+  page_number?: number;
+  preview?: string; // Data URL or path
+}
