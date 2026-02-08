@@ -688,7 +688,7 @@ fn get_organiser_pdf_metadata(path: String) -> AppResult<Vec<PageMetadata>> {
 }
 
 #[tauri::command]
-#[tauri::command]
+
 /// Applies the user's organisation changes to the PDF.
 /// 
 /// **Strategy: Safe Tree Flattening**
