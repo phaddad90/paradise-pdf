@@ -175,13 +175,6 @@ export function PdfOrganiser({
         setDropTarget({ idx, position });
     };
 
-    const onDragLeaveLocal = () => {
-        // We defer clearing to avoid flickering when moving between children
-        // In a complex app we might use a timeout or verify relatedTarget, 
-        // but for this grid, mostly reliance on DragOver updating the target is enough.
-        // We can clear if we leave the CONTAINER, but individual items might be tricky.
-        // strictly clearing here causes flicker. Let's rely on onDragOver updating it.
-    };
 
     const onDropLocal = (e: React.DragEvent) => {
         e.preventDefault();
