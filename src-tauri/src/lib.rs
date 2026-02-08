@@ -714,6 +714,7 @@ fn protect_pdf(
     output_path: String,
 ) -> AppResult<()> {
     use lopdf::encryption::{EncryptionVersion, EncryptionState, Permissions};
+    use lopdf::Object;
     use std::convert::TryFrom;
 
     let p = Path::new(&path);
@@ -721,7 +722,26 @@ fn protect_pdf(
         return Err(AppError::Path("Path is not a file.".to_string()));
     }
 
-    let doc = Document::load(p)?;
+    let mut doc = Document::load(p)?;
+
+    // PDF encryption requires /ID array in trailer. Add if missing.
+    if doc.trailer.get(b"ID").is_err() {
+        // Generate a unique ID based on current time and path
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let id_string = format!("{:032x}", timestamp);
+        let id_bytes = id_string.as_bytes().to_vec();
+        
+        // PDF spec requires array of two identical byte strings for new documents
+        let id_array = Object::Array(vec![
+            Object::String(id_bytes.clone(), lopdf::StringFormat::Hexadecimal),
+            Object::String(id_bytes, lopdf::StringFormat::Hexadecimal),
+        ]);
+        doc.trailer.set(b"ID", id_array);
+    }
 
     // Use owner password if provided, otherwise use user password for both
     let owner_pwd = owner_password.unwrap_or_else(|| user_password.clone());
@@ -748,6 +768,7 @@ fn protect_pdf(
 
     Ok(())
 }
+
 
 
 #[tauri::command]
