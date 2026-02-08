@@ -716,6 +716,17 @@ fn apply_pdf_organisation(
 
     // 1. Get current pages mapping (page_num -> object_id)
     let pages = doc.get_pages();
+
+    // Get MediaBox from the first page (if available) to use for blank pages
+    let default_media_box = if let Some(&first_page_id) = pages.get(&1) {
+        doc.get_dictionary(first_page_id)
+            .ok()
+            .and_then(|dict| dict.get(b"MediaBox").ok())
+            .cloned()
+            .unwrap_or_else(|| vec![0.into(), 0.into(), 595.28.into(), 841.89.into()].into()) // Fallback A4
+    } else {
+        vec![0.into(), 0.into(), 595.28.into(), 841.89.into()].into() // Fallback A4
+    };
     
     // 2. Resolve actions to a list of ObjectIds for the new document
     let mut new_page_ids = Vec::new();
@@ -728,7 +739,7 @@ fn apply_pdf_organisation(
                 }
             }
             PageAction::Blank => {
-                // Create a standard A4 blank page
+                // Create a blank page matching the document size
                 let content_id = doc.add_object(lopdf::Object::Stream(lopdf::Stream::new(
                     dictionary! {},
                     vec![],
@@ -736,7 +747,7 @@ fn apply_pdf_organisation(
                 
                 let page_id = doc.add_object(dictionary! {
                     b"Type" => "Page",
-                    b"MediaBox" => vec![0.into(), 0.into(), 595.28.into(), 841.89.into()],
+                    b"MediaBox" => default_media_box.clone(),
                     b"Resources" => dictionary! {},
                     b"Contents" => content_id,
                 });

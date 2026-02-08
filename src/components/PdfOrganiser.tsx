@@ -322,7 +322,7 @@ export function PdfOrganiser({
                             Loading Previews...
                         </div>
                     ) : (
-                        <div className="organise-grid" onDragLeave={() => setDropTarget(null)}>
+                        <div className="organise-grid">
                             {pages.map((page, idx) => (
                                 <div
                                     key={page.id}
