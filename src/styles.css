@@ -19,6 +19,83 @@
   --shadow: 0 2px 12px rgba(14, 165, 233, 0.12);
   --shadow-hover: 0 4px 20px rgba(14, 165, 233, 0.2);
   --shadow-soft: 0 4px 16px rgba(14, 165, 233, 0.08);
+  --bg-secondary: #f8fafc;
+  /* Light gray for cards/backgrounds */
+}
+
+/* --- Layout Utilities --- */
+
+.tool-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.tool-header .tool-title {
+  margin: 0;
+}
+
+.tool-controls {
+  display: flex;
+  gap: 8px;
+}
+
+/* --- Button Variants --- */
+
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --- List Items --- */
+
+.draggable-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  cursor: grab;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+
+.draggable-item:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-soft);
+}
+
+.draggable-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+  border-style: dashed;
+}
+
+/* --- Form Elements --- */
+
+.radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
 }
 
 * {
@@ -48,7 +125,7 @@ body {
   justify-content: space-between;
   gap: 16px;
   padding: 16px 24px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(224,242,254,0.5) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(224, 242, 254, 0.5) 100%);
   border-bottom: 1px solid var(--border);
   box-shadow: var(--shadow-soft);
   border-radius: 0 0 var(--radius) var(--radius);
@@ -91,7 +168,7 @@ body {
   font-size: 14px;
   font-weight: 500;
   color: var(--text);
-  background: rgba(255,255,255,0.9);
+  background: rgba(255, 255, 255, 0.9);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   cursor: pointer;
@@ -148,11 +225,11 @@ body {
 }
 
 .tools-dropdown button:hover {
-  background: linear-gradient(135deg, rgba(14,165,233,0.1) 0%, rgba(249,115,22,0.08) 100%);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1) 0%, rgba(249, 115, 22, 0.08) 100%);
 }
 
 .tools-dropdown button.active {
-  background: linear-gradient(135deg, rgba(14,165,233,0.15) 0%, rgba(249,115,22,0.12) 100%);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(249, 115, 22, 0.12) 100%);
   font-weight: 600;
 }
 
@@ -210,7 +287,7 @@ body {
 .drop-zone {
   border: 2px dashed var(--border);
   border-radius: var(--radius);
-  background: rgba(255,255,255,0.85);
+  background: rgba(255, 255, 255, 0.85);
   padding: 32px 24px;
   text-align: center;
   cursor: pointer;
@@ -220,7 +297,7 @@ body {
 .drop-zone:hover,
 .drop-zone.drag-over {
   border-color: var(--accent);
-  background: linear-gradient(135deg, rgba(14,165,233,0.06) 0%, rgba(249,115,22,0.04) 100%);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.06) 0%, rgba(249, 115, 22, 0.04) 100%);
   box-shadow: var(--shadow);
 }
 
@@ -259,7 +336,7 @@ body {
 
 .preview-box {
   padding: 12px;
-  background: linear-gradient(135deg, rgba(14,165,233,0.08) 0%, rgba(249,115,22,0.06) 100%);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(249, 115, 22, 0.06) 100%);
   border-radius: var(--radius);
   border: 1px solid var(--border);
   font-size: 13px;
@@ -301,7 +378,7 @@ body {
 }
 
 .status.info {
-  background: linear-gradient(135deg, rgba(14,165,233,0.12) 0%, rgba(249,115,22,0.08) 100%);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.12) 0%, rgba(249, 115, 22, 0.08) 100%);
   color: var(--text-secondary);
 }
 
@@ -361,7 +438,8 @@ body {
 
 .page-thumb {
   position: relative;
-  aspect-ratio: 1 / 1.414; /* A4 Ratio */
+  aspect-ratio: 1 / 1.414;
+  /* A4 Ratio */
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);

@@ -177,12 +177,12 @@ export function PdfRotator({
 
     return (
         <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h2 className="tool-title" style={{ margin: 0 }}>Rotate Pages</h2>
+            <div className="tool-header">
+                <h2 className="tool-title">Rotate Pages</h2>
                 {activeFile && (
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <button className="btn btn-secondary" onClick={() => rotateAll(-90)}>↺ All Left</button>
-                        <button className="btn btn-secondary" onClick={() => rotateAll(90)}>↻ All Right</button>
+                    <div className="tool-controls">
+                        <button className="btn btn-secondary btn-sm" onClick={() => rotateAll(-90)}>↺ All Left</button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => rotateAll(90)}>↻ All Right</button>
                     </div>
                 )}
             </div>
@@ -261,11 +261,11 @@ export function PdfRotator({
                                             gap: 8
                                         }}>
                                             <button
-                                                style={{ padding: '2px 6px', fontSize: '12px', cursor: 'pointer' }}
+                                                className="btn btn-secondary btn-sm"
                                                 onClick={() => rotatePage(pageNum, -90)}
                                             >↺</button>
                                             <button
-                                                style={{ padding: '2px 6px', fontSize: '12px', cursor: 'pointer' }}
+                                                className="btn btn-secondary btn-sm"
                                                 onClick={() => rotatePage(pageNum, 90)}
                                             >↻</button>
                                         </div>

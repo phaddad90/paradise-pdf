@@ -117,7 +117,9 @@ export function PdfSplitter({
 
     return (
         <>
-            <h2 className="tool-title">PDF Splitter</h2>
+            <div className="tool-header">
+                <h2 className="tool-title">PDF Splitter</h2>
+            </div>
 
             <section className="section" aria-labelledby="split-drop-label">
                 <span id="split-drop-label" className="label">PDFs</span>
@@ -164,8 +166,8 @@ export function PdfSplitter({
 
                     <section className="section">
                         <span className="label">Split mode</span>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-                            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div className="radio-group">
+                            <label className="radio-label">
                                 <input
                                     type="radio"
                                     name="splitMode"
@@ -196,7 +198,7 @@ export function PdfSplitter({
                                 disabled={splitMode === "one_per_page"}
                             />
                             <span>pages</span>
-                            <label style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 8 }}>
+                            <label className="radio-label">
                                 <input
                                     type="radio"
                                     name="splitMode"
@@ -210,8 +212,8 @@ export function PdfSplitter({
 
                     <section className="section">
                         <span className="label">Output folder</span>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div className="radio-group">
+                            <label className="radio-label">
                                 <input
                                     type="radio"
                                     name="outputFolder"
@@ -220,7 +222,7 @@ export function PdfSplitter({
                                 />
                                 Same folder as each PDF (default)
                             </label>
-                            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <label className="radio-label">
                                 <input
                                     type="radio"
                                     name="outputFolder"

@@ -94,7 +94,9 @@ export function PdfMerger({
 
     return (
         <>
-            <h2 className="tool-title">PDF Merge</h2>
+            <div className="tool-header">
+                <h2 className="tool-title">PDF Merge</h2>
+            </div>
 
             <section className="section" aria-labelledby="merge-drop-label">
                 <span id="merge-drop-label" className="label">Add PDFs to Merge</span>
@@ -132,14 +134,8 @@ export function PdfMerger({
                                 onDragOver={(e) => e.preventDefault()} // Necessary to allow dropping
                                 onDragEnter={() => onDragEnter(i)}
                                 onDragEnd={onDragEnd}
-                                className={draggedIndex === i ? "dragging" : ""}
+                                className={`draggable-item ${draggedIndex === i ? "dragging" : ""}`}
                                 style={{
-                                    cursor: 'grab',
-                                    padding: '8px',
-                                    border: '1px solid var(--border-color)',
-                                    marginBottom: '4px',
-                                    borderRadius: '4px',
-                                    background: 'var(--bg-secondary)',
                                     opacity: draggedIndex === i ? 0.5 : 1
                                 }}
                             >
