@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { FileEntry, StatusMessage } from "../types";
@@ -26,18 +26,11 @@ export function PdfUnlock({
     setStatus,
     status,
 }: PdfUnlockProps) {
-    const [password, setPassword] = useState("");
-
     const activeFile = files.length > 0 ? files[0] : null;
 
     const handleUnlock = useCallback(async () => {
         if (!activeFile) {
             setStatus({ type: "error", text: "Please select a PDF file." });
-            return;
-        }
-
-        if (!password) {
-            setStatus({ type: "error", text: "Please enter the password." });
             return;
         }
 
@@ -49,11 +42,10 @@ export function PdfUnlock({
 
             if (!outputPath) return;
 
-            setStatus({ type: "info", text: "Unlocking PDF..." });
+            setStatus({ type: "info", text: "Removing restrictions..." });
 
             await invoke("unlock_pdf", {
                 path: activeFile.path,
-                password,
                 outputPath,
             });
 
@@ -61,11 +53,10 @@ export function PdfUnlock({
                 type: "success",
                 text: `Successfully unlocked:\n${outputPath}`,
             });
-            setPassword("");
         } catch (e) {
             setStatus({ type: "error", text: String(e) });
         }
-    }, [activeFile, password, setStatus]);
+    }, [activeFile, setStatus]);
 
     return (
         <>
@@ -90,7 +81,7 @@ export function PdfUnlock({
                         </p>
                     ) : (
                         <>
-                            <p className="primary">Drop a password-protected PDF here</p>
+                            <p className="primary">Drop a PDF here to unlock</p>
                             <p>or click to select</p>
                         </>
                     )}
@@ -99,20 +90,14 @@ export function PdfUnlock({
 
             {activeFile && (
                 <section className="section">
-                    <label htmlFor="unlock-password" className="label">
-                        Password
-                    </label>
-                    <input
-                        id="unlock-password"
-                        type="password"
-                        className="input"
-                        placeholder="Enter PDF password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") handleUnlock();
-                        }}
-                    />
+                    <p style={{ marginBottom: 16 }}>
+                        Click below to remove encryption and owner restrictions (e.g., printing or copying bans).
+                        <br />
+                        <small style={{ opacity: 0.7 }}>
+                            Note: This tool removes owner restrictions. If the file has a user password (required to open),
+                            it attempts to remove it if empty, otherwise it may fail.
+                        </small>
+                    </p>
                 </section>
             )}
 
@@ -128,7 +113,6 @@ export function PdfUnlock({
                         <button
                             className="btn btn-primary"
                             onClick={handleUnlock}
-                            disabled={!password}
                         >
                             Unlock PDF
                         </button>

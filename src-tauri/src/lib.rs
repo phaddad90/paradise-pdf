@@ -690,21 +690,28 @@ fn mix_pdfs(paths: Vec<String>, output_path: String) -> AppResult<()> {
 }
 
 #[tauri::command]
-fn unlock_pdf(path: String, password: String, output_path: String) -> AppResult<()> {
+fn unlock_pdf(path: String, output_path: String) -> AppResult<()> {
     let p = Path::new(&path);
     if !p.is_file() {
         return Err(AppError::Path("Path is not a file.".to_string()));
     }
 
-    // Load with password - this decrypts the document
-    let mut doc = Document::load_with_password(p, &password)
-        .map_err(|e| AppError::Validation(format!("Failed to unlock PDF: {}. Check the password.", e)))?;
+    // Try to load with empty password first (works for owner-password-only PDFs)
+    let mut doc = Document::load_with_password(p, "")
+        .or_else(|_| Document::load(p))
+        .map_err(|e| AppError::Validation(format!(
+            "Cannot unlock this PDF. It may have a user password that requires the actual password to decrypt: {}", e
+        )))?;
 
-    // Save the decrypted document (without encryption)
+    // Remove encryption entries from trailer to strip restrictions
+    doc.trailer.remove(b"Encrypt");
+    
+    // Save the document without encryption
     doc.save(&output_path)?;
 
     Ok(())
 }
+
 
 #[tauri::command]
 fn protect_pdf(
