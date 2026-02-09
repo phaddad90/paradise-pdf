@@ -706,10 +706,9 @@ fn unlock_pdf(path: String, output_path: String) -> AppResult<()> {
     // 2. Create a clean, brand new document
     let mut new_doc = Document::new();
     new_doc.version = old_doc.version.clone();
+    new_doc.max_id = old_doc.max_id; // CRITICAL: Ensure we have the correct max ID for /Size
 
     // 3. Move all objects to the new document
-    // Since we're moving them from a single document into an empty one, 
-    // we don't need to renumber if we just copy them as-is.
     for (id, obj) in old_doc.objects {
         new_doc.objects.insert(id, obj);
     }
@@ -722,10 +721,6 @@ fn unlock_pdf(path: String, output_path: String) -> AppResult<()> {
         return Err(AppError::Validation("Failed to unlock PDF: Could not find Root object.".to_string()));
     }
 
-    if let Ok(id) = old_doc.trailer.get(b"ID") {
-        new_doc.trailer.set(b"ID", id.clone());
-    }
-
     if let Ok(info) = old_doc.trailer.get(b"Info") {
         new_doc.trailer.set(b"Info", info.clone());
     }
@@ -736,6 +731,7 @@ fn unlock_pdf(path: String, output_path: String) -> AppResult<()> {
 
     Ok(())
 }
+
 
 
 
