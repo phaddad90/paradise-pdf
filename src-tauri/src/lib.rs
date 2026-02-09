@@ -697,6 +697,7 @@ fn unlock_pdf(path: String, output_path: String) -> AppResult<()> {
     }
 
     // Try to load with empty password first (works for owner-password-only PDFs)
+    // We try load_with_password("") which decrypts if the owner password is empty or default.
     let mut doc = Document::load_with_password(p, "")
         .or_else(|_| Document::load(p))
         .map_err(|e| AppError::Validation(format!(
@@ -705,6 +706,18 @@ fn unlock_pdf(path: String, output_path: String) -> AppResult<()> {
 
     // Remove encryption entries from trailer to strip restrictions
     doc.trailer.remove(b"Encrypt");
+    
+    // Some PDFs might have an /ID in the trailer that was used for encryption logic.
+    // While not usually an issue, we can keep it.
+    
+    // CRITICAL: Prune objects to ensure lopdf recalculates the xref table and trailer correctly.
+    // This often fixes "missing root object" errors caused by inconsistent internal state.
+    doc.prune_objects();
+
+    // Ensure we have a Root object before saving
+    if doc.trailer.get(b"Root").is_err() {
+        return Err(AppError::Validation("Failed to unlock PDF: The document appears to have a corrupted trailer (missing /Root).".to_string()));
+    }
     
     // Save the document without encryption
     doc.save(&output_path)?;
