@@ -696,34 +696,47 @@ fn unlock_pdf(path: String, output_path: String) -> AppResult<()> {
         return Err(AppError::Path("Path is not a file.".to_string()));
     }
 
-    // Try to load with empty password first (works for owner-password-only PDFs)
-    // We try load_with_password("") which decrypts if the owner password is empty or default.
-    let mut doc = Document::load_with_password(p, "")
+    // 1. Load the document (decrypting if it has an empty/no owner password)
+    let mut old_doc = Document::load_with_password(p, "")
         .or_else(|_| Document::load(p))
         .map_err(|e| AppError::Validation(format!(
             "Cannot unlock this PDF. It may have a user password that requires the actual password to decrypt: {}", e
         )))?;
 
-    // Remove encryption entries from trailer to strip restrictions
-    doc.trailer.remove(b"Encrypt");
-    
-    // Some PDFs might have an /ID in the trailer that was used for encryption logic.
-    // While not usually an issue, we can keep it.
-    
-    // CRITICAL: Prune objects to ensure lopdf recalculates the xref table and trailer correctly.
-    // This often fixes "missing root object" errors caused by inconsistent internal state.
-    doc.prune_objects();
+    // 2. Create a clean, brand new document
+    let mut new_doc = Document::new();
+    new_doc.version = old_doc.version.clone();
 
-    // Ensure we have a Root object before saving
-    if doc.trailer.get(b"Root").is_err() {
-        return Err(AppError::Validation("Failed to unlock PDF: The document appears to have a corrupted trailer (missing /Root).".to_string()));
+    // 3. Move all objects to the new document
+    // Since we're moving them from a single document into an empty one, 
+    // we don't need to renumber if we just copy them as-is.
+    for (id, obj) in old_doc.objects {
+        new_doc.objects.insert(id, obj);
     }
-    
-    // Save the document without encryption
-    doc.save(&output_path)?;
+
+    // 4. Copy vital trailer information to the new document
+    // We specifically DON'T copy the "Encrypt" key.
+    if let Ok(root) = old_doc.trailer.get(b"Root") {
+        new_doc.trailer.set(b"Root", root.clone());
+    } else {
+        return Err(AppError::Validation("Failed to unlock PDF: Could not find Root object.".to_string()));
+    }
+
+    if let Ok(id) = old_doc.trailer.get(b"ID") {
+        new_doc.trailer.set(b"ID", id.clone());
+    }
+
+    if let Ok(info) = old_doc.trailer.get(b"Info") {
+        new_doc.trailer.set(b"Info", info.clone());
+    }
+
+    // 5. Final cleanup and save
+    new_doc.prune_objects();
+    new_doc.save(&output_path)?;
 
     Ok(())
 }
+
 
 
 #[tauri::command]
