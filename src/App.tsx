@@ -13,10 +13,9 @@ import { PageBoxInspector } from "./components/PageBoxInspector";
 import { PdfRotator } from "./components/PdfRotator";
 import PdfOrganiser from "./components/PdfOrganiser";
 import { PdfMixer } from "./components/PdfMixer";
-import { PdfUnlock } from "./components/PdfUnlock";
 import { PdfProtect } from "./components/PdfProtect";
 
-type ToolId = "pdf-bulk-renaming" | "pdf-splitter" | "pdf-merger" | "page-box-inspector" | "pdf-rotator" | "pdf-organiser" | "pdf-mixer" | "pdf-unlock" | "pdf-protect";
+type ToolId = "pdf-bulk-renaming" | "pdf-splitter" | "pdf-merger" | "page-box-inspector" | "pdf-rotator" | "pdf-organiser" | "pdf-mixer" | "pdf-protect";
 
 function isPdf(name: string): boolean {
   return name.toLowerCase().endsWith(".pdf");
@@ -307,19 +306,6 @@ function App() {
                 <button
                   type="button"
                   role="menuitem"
-                  className={currentTool === "pdf-unlock" ? "active" : ""}
-                  onClick={() => {
-                    setCurrentTool("pdf-unlock");
-                    setToolsOpen(false);
-                  }}
-                >
-                  Unlock PDF
-                </button>
-              </li>
-              <li role="none">
-                <button
-                  type="button"
-                  role="menuitem"
                   className={currentTool === "pdf-protect" ? "active" : ""}
                   onClick={() => {
                     setCurrentTool("pdf-protect");
@@ -440,19 +426,6 @@ function App() {
           />
         )}
 
-        {currentTool === "pdf-unlock" && (
-          <PdfUnlock
-            files={files}
-            onPickFiles={pickFiles}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            dragOver={dragOver}
-            onReset={handleReset}
-            setStatus={setStatus}
-            status={status}
-          />
-        )}
 
         {currentTool === "pdf-protect" && (
           <PdfProtect

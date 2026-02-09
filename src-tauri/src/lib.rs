@@ -689,48 +689,6 @@ fn mix_pdfs(paths: Vec<String>, output_path: String) -> AppResult<()> {
     Ok(())
 }
 
-#[tauri::command]
-fn unlock_pdf(path: String, output_path: String) -> AppResult<()> {
-    let p = Path::new(&path);
-    if !p.is_file() {
-        return Err(AppError::Path("Path is not a file.".to_string()));
-    }
-
-    // 1. Load the document (decrypting if it has an empty/no owner password)
-    let mut old_doc = Document::load_with_password(p, "")
-        .or_else(|_| Document::load(p))
-        .map_err(|e| AppError::Validation(format!(
-            "Cannot unlock this PDF. It may have a user password that requires the actual password to decrypt: {}", e
-        )))?;
-
-    // 2. Create a clean, brand new document
-    let mut new_doc = Document::new();
-    new_doc.version = old_doc.version.clone();
-    new_doc.max_id = old_doc.max_id; // CRITICAL: Ensure we have the correct max ID for /Size
-
-    // 3. Move all objects to the new document
-    for (id, obj) in old_doc.objects {
-        new_doc.objects.insert(id, obj);
-    }
-
-    // 4. Copy vital trailer information to the new document
-    // We specifically DON'T copy the "Encrypt" key.
-    if let Ok(root) = old_doc.trailer.get(b"Root") {
-        new_doc.trailer.set(b"Root", root.clone());
-    } else {
-        return Err(AppError::Validation("Failed to unlock PDF: Could not find Root object.".to_string()));
-    }
-
-    if let Ok(info) = old_doc.trailer.get(b"Info") {
-        new_doc.trailer.set(b"Info", info.clone());
-    }
-
-    // 5. Final cleanup and save
-    new_doc.prune_objects();
-    new_doc.save(&output_path)?;
-
-    Ok(())
-}
 
 
 
@@ -1067,7 +1025,6 @@ pub fn run() {
             get_organiser_pdf_metadata,
             apply_pdf_organisation,
             mix_pdfs,
-            unlock_pdf,
             protect_pdf,
         ])
         .setup(move |app| {
