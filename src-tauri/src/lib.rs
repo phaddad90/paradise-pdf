@@ -796,7 +796,8 @@ fn rotate_pdf_pages(path: String, rotations: std::collections::HashMap<u32, i32>
             }
         }
     }
-
+    // 8. Save the document
+    doc.save(path)?;
     Ok(())
 }
 
