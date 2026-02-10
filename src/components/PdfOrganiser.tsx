@@ -120,11 +120,70 @@ export default function PdfOrganiser({
     setStatus
 }: Props) {
     const [pages, setPages] = useState<PdfPage[]>([]);
+    const [history, setHistory] = useState<PdfPage[][]>([]);
+    const [future, setFuture] = useState<PdfPage[][]>([]);
     const [saving, setSaving] = useState(false);
     const [loading, setLoading] = useState(false);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [lastSelectedId, setLastSelectedId] = useState<string | null>(null); // Anchor for Shift+Click
     const [activeId, setActiveId] = useState<string | null>(null);
+
+    const addToHistory = (currentPages: PdfPage[]) => {
+        setHistory(prev => [...prev, [...currentPages]]);
+        setFuture([]); // Clear future when a new action is performed
+    };
+
+    const undo = () => {
+        if (history.length === 0) return;
+        const previous = history[history.length - 1];
+        const newHistory = history.slice(0, history.length - 1);
+
+        setFuture(prev => [...prev, [...pages]]);
+        setPages(previous);
+        setHistory(newHistory);
+        setSelectedIds(new Set());
+        setLastSelectedId(null);
+    };
+
+    const redo = () => {
+        if (future.length === 0) return;
+        const next = future[future.length - 1];
+        const newFuture = future.slice(0, future.length - 1);
+
+        setHistory(prev => [...prev, [...pages]]);
+        setPages(next);
+        setFuture(newFuture);
+        setSelectedIds(new Set());
+        setLastSelectedId(null);
+    };
+
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'z') {
+                e.preventDefault();
+                undo();
+            } else if (
+                ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'z') ||
+                ((e.metaKey || e.ctrlKey) && e.key === 'y') ||
+                ((e.metaKey || e.ctrlKey) && e.key === 'x') // Requested shortcut
+            ) {
+                // Only provide e.preventDefault() for redo if we are not in a context where cut is common
+                // But since this is a global listener on the organiser, and we specifically want Cmd+X for redo...
+                if (e.key === 'x' && (e.metaKey || e.ctrlKey)) {
+                    // Check if we are in an input or textarea
+                    if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+                        return;
+                    }
+                }
+                e.preventDefault();
+                redo();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [pages, history, future]);
 
     // Load the first file from props
     const file = files.length > 0 ? files[0] : null;
@@ -183,6 +242,8 @@ export default function PdfOrganiser({
             }));
 
             setPages(pageList);
+            setHistory([]);
+            setFuture([]);
             setStatus({ type: "info", text: "PDF loaded successfully" });
             setSelectedIds(new Set());
             setLastSelectedId(null);
@@ -204,6 +265,7 @@ export default function PdfOrganiser({
         const { active, over } = event;
 
         if (over && active.id !== over.id) {
+            addToHistory(pages);
             setPages((items) => {
                 const oldIndex = items.findIndex(i => i.id === active.id);
                 const newIndex = items.findIndex(i => i.id === over.id);
@@ -255,6 +317,7 @@ export default function PdfOrganiser({
     };
 
     const insertBlank = () => {
+        addToHistory(pages);
         const newBlank: PdfPage = { type: "blank", id: crypto.randomUUID() };
         setPages((prev) => {
             const next = [...prev];
@@ -272,6 +335,7 @@ export default function PdfOrganiser({
     };
 
     const deleteSelected = () => {
+        addToHistory(pages);
         setPages(prev => prev.filter(p => !selectedIds.has(p.id)));
         setSelectedIds(new Set());
         setLastSelectedId(null);
@@ -303,6 +367,7 @@ export default function PdfOrganiser({
     const contextAction = (action: 'blank-before' | 'blank-after' | 'delete') => {
         if (contextMenu.index === -1) return;
 
+        addToHistory(pages);
         setPages(prev => {
             const next = [...prev];
             switch (action) {
@@ -368,6 +433,26 @@ export default function PdfOrganiser({
                 <h2 className="tool-title" style={{ margin: 0 }}>PDF Organiser</h2>
                 {file && (
                     <div className="tool-controls" style={{ display: 'flex', gap: 8 }}>
+                        <div className="history-controls" style={{ display: 'flex', gap: 4, marginRight: 12 }}>
+                            <button
+                                onClick={undo}
+                                disabled={history.length === 0}
+                                className="btn btn-secondary"
+                                title="Undo (Cmd+Z)"
+                                style={{ padding: '4px 8px', fontSize: '12px' }}
+                            >
+                                ↩️ Undo
+                            </button>
+                            <button
+                                onClick={redo}
+                                disabled={future.length === 0}
+                                className="btn btn-secondary"
+                                title="Redo (Cmd+X)"
+                                style={{ padding: '4px 8px', fontSize: '12px' }}
+                            >
+                                ↪️ Redo
+                            </button>
+                        </div>
                         <button onClick={onReset} className="btn btn-secondary">Reset</button>
                     </div>
                 )}
