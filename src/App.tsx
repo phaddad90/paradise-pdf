@@ -14,8 +14,9 @@ import { PdfRotator } from "./components/PdfRotator";
 import PdfOrganiser from "./components/PdfOrganiser";
 import { PdfMixer } from "./components/PdfMixer";
 import { PdfProtect } from "./components/PdfProtect";
+import { PdfCompressor } from "./components/PdfCompressor";
 
-type ToolId = "pdf-bulk-renaming" | "pdf-splitter" | "pdf-merger" | "page-box-inspector" | "pdf-rotator" | "pdf-organiser" | "pdf-mixer" | "pdf-protect";
+type ToolId = "pdf-bulk-renaming" | "pdf-splitter" | "pdf-merger" | "page-box-inspector" | "pdf-rotator" | "pdf-organiser" | "pdf-mixer" | "pdf-protect" | "pdf-compressor";
 
 function isPdf(name: string): boolean {
   return name.toLowerCase().endsWith(".pdf");
@@ -315,6 +316,19 @@ function App() {
                   Protect PDF
                 </button>
               </li>
+              <li role="none">
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={currentTool === "pdf-compressor" ? "active" : ""}
+                  onClick={() => {
+                    setCurrentTool("pdf-compressor");
+                    setToolsOpen(false);
+                  }}
+                >
+                  Compress PDF
+                </button>
+              </li>
             </ul>
           )}
         </div>
@@ -429,6 +443,20 @@ function App() {
 
         {currentTool === "pdf-protect" && (
           <PdfProtect
+            files={files}
+            onPickFiles={pickFiles}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            dragOver={dragOver}
+            onReset={handleReset}
+            setStatus={setStatus}
+            status={status}
+          />
+        )}
+
+        {currentTool === "pdf-compressor" && (
+          <PdfCompressor
             files={files}
             onPickFiles={pickFiles}
             onDrop={handleDrop}

@@ -54,3 +54,26 @@ export interface StatusMessage {
   type: "success" | "error" | "info";
   text: string;
 }
+
+export interface CompressionSettings {
+  image_quality: number;
+  max_resolution_dpi: number;
+  reduce_color_complexity: boolean;
+  clip_invisible: boolean;
+  force_recompression: boolean;
+  remove_unused_fonts: boolean;
+  convert_to_cff: boolean;
+  merge_font_programs: boolean;
+  remove_annotations: boolean;
+  flatten_form_fields: boolean;
+  remove_metadata: boolean;
+  remove_thumbnails: boolean;
+  remove_application_data: boolean;
+  remove_structure_tree: boolean;
+}
+
+export interface CompressionResult {
+  original_size: number;
+  compressed_size: number;
+  success: boolean;
+}
