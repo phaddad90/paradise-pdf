@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use tauri::{Emitter, Manager};
 use thiserror::Error;
 use memmap2::Mmap;
+use std::io::{Read, Seek, SeekFrom};
 
 // --- Error Handling ---
 
@@ -115,6 +116,61 @@ pub struct PdfDiagnosticResult {
     pub file_size: u64,
 }
 
+// --- Virtual Repair Reader for large/malformed PDFs ---
+
+struct SeekingChain<'a> {
+    mmap: &'a [u8],
+    patch: Vec<u8>,
+    pos: u64,
+}
+
+impl<'a> SeekingChain<'a> {
+    fn new(mmap: &'a [u8], patch: Vec<u8>) -> Self {
+        Self { mmap, patch, pos: 0 }
+    }
+}
+
+impl<'a> Read for SeekingChain<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let mmap_len = self.mmap.len() as u64;
+        let mut n = 0;
+        if self.pos < mmap_len {
+            let rem = (mmap_len - self.pos) as usize;
+            let take = rem.min(buf.len());
+            buf[..take].copy_from_slice(&self.mmap[self.pos as usize..self.pos as usize + take]);
+            self.pos += take as u64;
+            n += take;
+        }
+        if n < buf.len() {
+            let patch_pos = (self.pos.saturating_sub(mmap_len)) as usize;
+            if patch_pos < self.patch.len() {
+                let rem = self.patch.len() - patch_pos;
+                let take = rem.min(buf.len() - n);
+                buf[n..n+take].copy_from_slice(&self.patch[patch_pos..patch_pos + take]);
+                self.pos += take as u64;
+                n += take;
+            }
+        }
+        Ok(n)
+    }
+}
+
+impl<'a> Seek for SeekingChain<'a> {
+    fn seek(&mut self, style: SeekFrom) -> std::io::Result<u64> {
+        let total_len = self.mmap.len() as u64 + self.patch.len() as u64;
+        let new_pos = match style {
+            SeekFrom::Start(n) => n as i64,
+            SeekFrom::Current(n) => self.pos as i64 + n,
+            SeekFrom::End(n) => total_len as i64 + n,
+        };
+        if new_pos < 0 {
+             return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "negative seek"));
+        }
+        self.pos = new_pos as u64;
+        Ok(self.pos)
+    }
+}
+
 // --- Helpers ---
 
 fn load_pdf<P: AsRef<Path>>(path: P) -> AppResult<Document> {
@@ -123,7 +179,50 @@ fn load_pdf<P: AsRef<Path>>(path: P) -> AppResult<Document> {
     // by another process while we are reading it. 
     // In our desktop app context, this is a reasonable risk.
     let mmap = unsafe { Mmap::map(&file)? };
-    Document::load_mem(&mmap).map_err(AppError::from)
+    
+    // 1. Try standard load from memory
+    match Document::load_mem(&mmap) {
+        Ok(doc) => Ok(doc),
+        Err(e) => {
+            // 2. If it fails, try the "Virtual Repair" for giant/malformed files.
+            // Some giant PDFs (>4GB) have trailers that lopdf has trouble parsing due to lack of whitespace
+            // or 32-bit truncation in various places. We "inject" a clean trailer in memory.
+            if let Some(offset) = find_start_xref(&mmap) {
+                let patch = format!("\n\nstartxref\n{}\n%%EOF", offset).into_bytes();
+                let mut reader = SeekingChain::new(&mmap, patch);
+                match Document::load_from(&mut reader) {
+                    Ok(doc) => Ok(doc),
+                    Err(_) => Err(AppError::Pdf(e)), // Return original error if repair also fails
+                }
+            } else {
+                Err(AppError::Pdf(e))
+            }
+        }
+    }
+}
+
+fn find_start_xref(data: &[u8]) -> Option<u64> {
+    // Find last %%EOF
+    let eof_marker = b"%%EOF";
+    let eof_pos = data.windows(5).rposition(|w| w == eof_marker)?;
+    
+    // Look back from %%EOF for startxref (up to 128 bytes)
+    let lookback = if eof_pos > 128 { eof_pos - 128 } else { 0 };
+    let search_zone = &data[lookback..eof_pos];
+    let startxref_marker = b"startxref";
+    let s_pos = search_zone.windows(9).rposition(|w| w == startxref_marker)?;
+    
+    // Extract digits between startxref and %%EOF
+    let digit_start = lookback + s_pos + 9;
+    let digit_zone = &data[digit_start..eof_pos];
+    let mut offset_str = String::new();
+    for &b in digit_zone {
+        if b.is_ascii_digit() {
+            offset_str.push(b as char);
+        }
+    }
+    
+    offset_str.parse::<u64>().ok()
 }
 
 // --- Commands ---
