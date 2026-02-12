@@ -19,7 +19,7 @@ tauri-plugin-localhost = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "1"
-lopdf = "0.39"
+lopdf = { git = "https://github.com/J-F-Liu/lopdf" }
 image = "0.25"
 memmap2 = "0.9"
 tauri-plugin-updater = "2.10.0"
