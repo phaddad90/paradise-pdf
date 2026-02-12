@@ -78,3 +78,8 @@ export interface CompressionResult {
   compressed_size: number;
   success: boolean;
 }
+export interface PdfDiagnosticResult {
+  header: string;
+  trailer: string;
+  file_size: number;
+}

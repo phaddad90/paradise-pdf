@@ -108,6 +108,13 @@ pub struct CompressionResult {
     pub success: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PdfDiagnosticResult {
+    pub header: String,
+    pub trailer: String,
+    pub file_size: u64,
+}
+
 // --- Helpers ---
 
 fn load_pdf<P: AsRef<Path>>(path: P) -> AppResult<Document> {
@@ -1011,6 +1018,30 @@ fn apply_pdf_organisation(
     Ok(())
 }
 
+#[tauri::command]
+fn debug_pdf_structure(path: String) -> AppResult<PdfDiagnosticResult> {
+    use std::io::{Read, Seek, SeekFrom};
+    let mut file = fs::File::open(&path)?;
+    let metadata = file.metadata()?;
+    let file_size = metadata.len();
+
+    let mut header_buf = vec![0u8; 1024.min(file_size as usize)];
+    file.read_exact(&mut header_buf)?;
+    let header_str = String::from_utf8_lossy(&header_buf).to_string();
+
+    let mut trailer_buf = vec![0u8; 2048.min(file_size as usize)];
+    let seek_pos = if file_size > 2048 { file_size - 2048 } else { 0 };
+    file.seek(SeekFrom::Start(seek_pos))?;
+    file.read_exact(&mut trailer_buf)?;
+    let trailer_str = String::from_utf8_lossy(&trailer_buf).to_string();
+
+    Ok(PdfDiagnosticResult {
+        header: header_str,
+        trailer: trailer_str,
+        file_size,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     const LOCALHOST_PORT: u16 = 1420;
@@ -1092,6 +1123,7 @@ pub fn run() {
             mix_pdfs,
             protect_pdf,
             compress_pdf_v2,
+            debug_pdf_structure,
         ])
         .setup(move |app| {
             let url: tauri::Url = format!("http://localhost:{}", LOCALHOST_PORT).parse().unwrap();

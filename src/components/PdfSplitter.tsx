@@ -56,6 +56,14 @@ export function PdfSplitter({
                     });
                     results.push(r);
                 } catch (e) {
+                    // Try to get diagnostics for huge files
+                    try {
+                        const diag = await invoke<any>("debug_pdf_structure", { path: f.path });
+                        console.log(`Diagnostics for ${f.name}:`, diag);
+                    } catch (diagErr) {
+                        console.error("Failed to get diagnostics:", diagErr);
+                    }
+
                     results.push({
                         source_name: f.name,
                         page_count: 0,
