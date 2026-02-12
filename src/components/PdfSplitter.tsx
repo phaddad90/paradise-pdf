@@ -1,6 +1,7 @@
 import React, { useCallback, useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import { listen } from "@tauri-apps/api/event";
 import { FileEntry, SplitPreviewResult } from "../types";
 
 interface PdfSplitterProps {
@@ -34,6 +35,7 @@ export function PdfSplitter({
     const [splitEveryN, setSplitEveryN] = useState(1);
     const [outputDir, setOutputDir] = useState<string | null>(null);
     const [splitPreviews, setSplitPreviews] = useState<SplitPreviewResult[]>([]);
+    const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
 
     useEffect(() => {
         if (files.length === 0) {
@@ -88,6 +90,14 @@ export function PdfSplitter({
                 ? { mode: "one_per_page" as const }
                 : { mode: "every_n" as const, n: Math.max(1, splitEveryN) };
         const outDir = outputDir || undefined;
+
+        const totalExpected = splitPreviews.reduce((acc, p) => acc + p.parts.length, 0);
+        setProgress({ current: 0, total: totalExpected });
+
+        const unlisten = await listen<number>("split-progress", (event) => {
+            setProgress(prev => prev ? { ...prev, current: event.payload } : null);
+        });
+
         let total = 0;
         try {
             for (const f of files) {
@@ -106,8 +116,11 @@ export function PdfSplitter({
             setSplitPreviews([]);
         } catch (e) {
             setStatus({ type: "error", text: String(e) });
+        } finally {
+            unlisten();
+            setProgress(null);
         }
-    }, [files, splitMode, splitEveryN, outputDir, setStatus, onSplitComplete]);
+    }, [files, splitMode, splitEveryN, outputDir, setStatus, onSplitComplete, splitPreviews]);
 
     const pickOutputFolder = useCallback(async () => {
         const selected = await open({
@@ -249,7 +262,19 @@ export function PdfSplitter({
                         </div>
                     </section>
 
-                    {splitPreviews.length > 0 && (
+                    {progress && (
+                        <section className="section">
+                            <span className="label">Processing... ({progress.current} / {progress.total})</span>
+                            <div className="progress-bar-container">
+                                <div
+                                    className="progress-bar-fill"
+                                    style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                                />
+                            </div>
+                        </section>
+                    )}
+
+                    {splitPreviews.length > 0 && !progress && (
                         <section className="section">
                             <div className="preview-box">
                                 <span className="label">Preview — files to create</span>

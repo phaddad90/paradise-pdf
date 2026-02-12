@@ -499,6 +499,7 @@ fn calculate_chunks(mode: &SplitMode, page_count: u32) -> Vec<(u32, u32)> {
 
 #[tauri::command]
 fn split_pdf(
+    app: tauri::AppHandle,
     source_path: String,
     output_dir: Option<String>,
     mode: SplitMode,
@@ -560,16 +561,12 @@ fn split_pdf(
     // To strictly follow "streaming" we'd need a different crate or approach.
     // But minimizing memory footprint:
     // 
-    // Verified approach in lopdf community for splitting:
-    // Standard approach IS clone-and-prune because of reference complexity (fonts/images shared across pages).
-    // Extracting pages to a NEW clean document requires walking the graph of each page.
-    // I previously promised "streaming". I will keep the clone-and-prune but ensure it's efficient.
-    // Also, I added `compress()` to the save operation to ensure output is small.
-
     for (i, &(start, end)) in chunk_ranges.iter().enumerate() {
-        // Optimization for large files: Instead of cloning doc in memory (which doubles memory usage),
-        // we reload from disk for each part using memory mapping.
-        let mut part_doc = load_pdf(&path)?;
+        // Emit progress to frontend
+        let _ = app.emit("split-progress", i as u32);
+
+        // One-time load + clone is much faster than reloading 4GB+ from disk every time.
+        let mut part_doc = doc.clone();
         
         let to_delete: Vec<u32> = (1..=page_count)
             .filter(|&p| p < start || p > end)
@@ -586,6 +583,8 @@ fn split_pdf(
         
         saved_paths.push(out_path.to_string_lossy().to_string());
     }
+
+    let _ = app.emit("split-progress", chunk_ranges.len() as u32);
 
     Ok(saved_paths)
 }
