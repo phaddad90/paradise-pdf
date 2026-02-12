@@ -310,6 +310,30 @@ impl Object {
             Object::Reference(_) => "Reference",
         }
     }
+
+    pub fn collect_references(&self, refs: &mut Vec<ObjectId>) {
+        match self {
+            Object::Array(array) => {
+                for item in array {
+                    item.collect_references(refs);
+                }
+            }
+            Object::Dictionary(dict) => {
+                for (_, value) in dict {
+                    value.collect_references(refs);
+                }
+            }
+            Object::Stream(stream) => {
+                for (_, value) in &stream.dict {
+                    value.collect_references(refs);
+                }
+            }
+            Object::Reference(id) => {
+                refs.push(*id);
+            }
+            _ => {}
+        }
+    }
 }
 
 impl fmt::Debug for Object {

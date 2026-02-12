@@ -97,6 +97,75 @@ impl Document {
 
     const DEREF_LIMIT: usize = 128;
 
+    pub fn extract_pages(&self, page_numbers: &[u32]) -> Result<Document> {
+        let pages = self.get_pages();
+        let mut target_ids = HashSet::new();
+        let mut target_page_ids = Vec::new();
+
+        for &num in page_numbers {
+            if let Some(&id) = pages.get(&num) {
+                target_page_ids.push(id);
+                target_ids.insert(id);
+            }
+        }
+
+        if target_page_ids.is_empty() {
+            return Err(Error::Xref(crate::error::XrefError::Start));
+        }
+
+        let root_id = self.trailer.get(b"Root")?.as_reference()?;
+        target_ids.insert(root_id);
+
+        // Find the Pages root
+        let pages_id = self.get_dictionary(root_id)?.get(b"Pages")?.as_reference()?;
+        target_ids.insert(pages_id);
+
+        let mut queue: Vec<ObjectId> = target_ids.iter().cloned().collect();
+        let mut index = 0;
+        while index < queue.len() {
+            let id = queue[index];
+            index += 1;
+            if let Some(obj) = self.objects.get(&id) {
+                let mut refs = Vec::new();
+                obj.collect_references(&mut refs);
+                for r_id in refs {
+                    if target_ids.insert(r_id) {
+                        queue.push(r_id);
+                    }
+                }
+            }
+        }
+
+        let mut new_doc = Document::new();
+        new_doc.version = self.version.clone();
+        for &id in &target_ids {
+            if let Some(obj) = self.objects.get(&id) {
+                new_doc.objects.insert(id, obj.clone());
+            }
+        }
+
+        // Update Pages dictionary in new_doc
+        if let Some(Object::Dictionary(dict)) = new_doc.objects.get_mut(&pages_id) {
+            dict.set("Count", target_page_ids.len() as i64);
+            dict.set(
+                "Kids",
+                Object::Array(target_page_ids.iter().map(|&id| Object::Reference(id)).collect()),
+            );
+        }
+
+        // Update Trailer
+        new_doc.trailer.set("Root", Object::Reference(root_id));
+        if let Ok(info_id) = self.trailer.get(b"Info").and_then(Object::as_reference) {
+            if let Some(info) = self.objects.get(&info_id) {
+                new_doc.objects.insert(info_id, info.clone());
+                new_doc.trailer.set("Info", Object::Reference(info_id));
+            }
+        }
+
+        new_doc.max_id = self.max_id;
+        Ok(new_doc)
+    }
+
     fn recursive_fix_pages(&mut self, bookmarks: &[u32], first: bool) -> ObjectId {
         if !bookmarks.is_empty() {
             for id in bookmarks {

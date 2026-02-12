@@ -565,17 +565,11 @@ fn split_pdf(
         // Emit progress to frontend
         let _ = app.emit("split-progress", i as u32);
 
-        // One-time load + clone is much faster than reloading 4GB+ from disk every time.
-        let mut part_doc = doc.clone();
-        
-        let to_delete: Vec<u32> = (1..=page_count)
-            .filter(|&p| p < start || p > end)
-            .collect();
-            
-        part_doc.delete_pages(&to_delete);
-        part_doc.prune_objects();
-        part_doc.renumber_objects();
-        
+        // HIGH PERFORMANCE: extract_pages only copies required objects.
+        // This is near-instant compared to cloning a 4GB doc.
+        let page_range: Vec<u32> = (start..=end).collect();
+        let mut part_doc = doc.extract_pages(&page_range)?;
+
         let out_name = format!("{}_part{}.pdf", stem, i + 1);
         let out_path = out_dir_path.join(&out_name);
         

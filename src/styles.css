@@ -536,3 +536,18 @@ body {
   background: linear-gradient(90deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
   transition: width 0.3s ease;
 }
+
+/* --- Footer --- */
+.api-footer {
+  margin-top: 40px;
+  padding: 24px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.author-info p {
+  margin: 4px 0;
+}

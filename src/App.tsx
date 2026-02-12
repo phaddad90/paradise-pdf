@@ -469,6 +469,12 @@ function App() {
           />
         )}
       </main>
+      <footer className="api-footer">
+        <div className="author-info">
+          <p>Author: Peter Haddad</p>
+          <p>© 2026</p>
+        </div>
+      </footer>
     </div>
   );
 }
