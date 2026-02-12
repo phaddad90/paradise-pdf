@@ -8,6 +8,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::{Emitter, Manager};
 use thiserror::Error;
+use memmap2::Mmap;
 
 // --- Error Handling ---
 
@@ -105,6 +106,17 @@ pub struct CompressionResult {
     pub original_size: u64,
     pub compressed_size: u64,
     pub success: bool,
+}
+
+// --- Helpers ---
+
+fn load_pdf<P: AsRef<Path>>(path: P) -> AppResult<Document> {
+    let file = fs::File::open(path)?;
+    // Memory mapping is unsafe because the file could be truncated 
+    // by another process while we are reading it. 
+    // In our desktop app context, this is a reasonable risk.
+    let mmap = unsafe { Mmap::map(&file)? };
+    Document::load_mem(&mmap).map_err(AppError::from)
 }
 
 // --- Commands ---
@@ -306,11 +318,7 @@ fn batch_rename(
 
 #[tauri::command]
 fn pdf_page_count(path: String) -> AppResult<u32> {
-    let path = Path::new(&path);
-    if !path.is_file() {
-        return Err(AppError::Path("Path is not a file.".to_string()));
-    }
-    let doc = Document::load(path)?;
+    let doc = load_pdf(&path)?;
     let pages = doc.get_pages();
     Ok(pages.len() as u32)
 }
@@ -320,13 +328,7 @@ fn split_pdf_preview(
     path: String,
     mode: SplitMode,
 ) -> AppResult<SplitPreviewResult> {
-    let path = Path::new(&path);
-    if !path.is_file() {
-        return Err(AppError::Path("Path is not a file.".to_string()));
-    }
-    // Optimization: Just read header or rely on load for now. 
-    // load is needed to get accurate page count.
-    let doc = Document::load(path)?; 
+    let doc = load_pdf(&path)?; 
     let pages = doc.get_pages();
     let page_count = pages.len() as u32;
 
@@ -334,12 +336,13 @@ fn split_pdf_preview(
         return Err(AppError::Validation("PDF has no pages.".to_string()));
     }
 
-    let stem = path
+    let path_obj = Path::new(&path);
+    let stem = path_obj
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("document")
         .to_string();
-    let source_name = path
+    let source_name = path_obj
         .file_name()
         .and_then(|s| s.to_str())
         .unwrap_or("document.pdf")
@@ -394,13 +397,13 @@ fn split_pdf(
     output_dir: Option<String>,
     mode: SplitMode,
 ) -> AppResult<Vec<String>> {
-    let path = Path::new(&source_path);
+    let path = PathBuf::from(&source_path);
     if !path.is_file() {
         return Err(AppError::Path("Path is not a file.".to_string()));
     }
 
-    // Load document once
-    let doc = Document::load(&path)?;
+    // Load document to get page count
+    let doc = load_pdf(&path)?;
     let pages = doc.get_pages();
     let page_count = pages.len() as u32;
 
@@ -459,8 +462,8 @@ fn split_pdf(
 
     for (i, &(start, end)) in chunk_ranges.iter().enumerate() {
         // Optimization for large files: Instead of cloning doc in memory (which doubles memory usage),
-        // we reload from disk for each part. This uses more IO but significantly less peak RAM.
-        let mut part_doc = Document::load(&path)?;
+        // we reload from disk for each part using memory mapping.
+        let mut part_doc = load_pdf(&path)?;
         
         let to_delete: Vec<u32> = (1..=page_count)
             .filter(|&p| p < start || p > end)
@@ -527,11 +530,7 @@ fn format_rect(obj: &lopdf::Object) -> Option<String> {
 
 #[tauri::command]
 fn get_page_boxes(path: String) -> AppResult<Vec<PageBoxes>> {
-    let path = Path::new(&path);
-    if !path.is_file() {
-         return Err(AppError::Path("Path is not a file.".to_string()));
-    }
-    let doc = Document::load(path)?;
+    let doc = load_pdf(&path)?;
     let mut results = Vec::new();
     
     // doc.get_pages() returns BTreeMap<u32, ObjectId>
@@ -561,21 +560,12 @@ fn merge_pdfs(paths: Vec<String>, output_path: String) -> AppResult<()> {
         return Err(AppError::Validation("No files to merge.".to_string()));
     }
     
-    let first_path = Path::new(&paths[0]);
-    if !first_path.exists() {
-         return Err(AppError::Path(format!("File not found: {}", paths[0])));
-    }
-    
-    // We start with the first document as our base
-    let mut final_doc = Document::load(first_path)?;
+    // We start with the first document as our base using memory mapping
+    let mut final_doc = load_pdf(&paths[0])?;
 
     // Append subsequent documents
     for path_str in paths.iter().skip(1) {
-         let p = Path::new(path_str);
-         if !p.exists() {
-             return Err(AppError::Path(format!("File not found: {}", path_str)));
-         }
-         let mut doc = Document::load(p)?;
+         let mut doc = load_pdf(path_str)?;
          
          // 1. Shift IDs of the incoming doc so they don't collide with final_doc
          doc.renumber_objects_with(final_doc.max_id);
@@ -639,11 +629,7 @@ fn mix_pdfs(paths: Vec<String>, output_path: String) -> AppResult<()> {
     let mut docs_pages: Vec<Vec<lopdf::ObjectId>> = Vec::new();
 
     for path_str in paths {
-        let p = Path::new(&path_str);
-        if !p.exists() {
-             return Err(AppError::Path(format!("File not found: {}", path_str)));
-        }
-        let mut doc = Document::load(p)?;
+        let mut doc = load_pdf(&path_str)?;
 
         // Renumber objects to avoid collision with what's already in final_doc
         doc.renumber_objects_with(final_doc.max_id);
@@ -724,12 +710,7 @@ fn protect_pdf(
     use lopdf::Object;
     use std::convert::TryFrom;
 
-    let p = Path::new(&path);
-    if !p.is_file() {
-        return Err(AppError::Path("Path is not a file.".to_string()));
-    }
-
-    let mut doc = Document::load(p)?;
+    let mut doc = load_pdf(&path)?;
 
     // PDF encryption requires /ID array in trailer. Add if missing.
     if doc.trailer.get(b"ID").is_err() {
@@ -780,13 +761,8 @@ fn protect_pdf(
 
 #[tauri::command]
 fn rotate_pdf_pages(path: String, rotations: std::collections::HashMap<u32, i32>) -> AppResult<()> {
-    let path = Path::new(&path);
-    if !path.is_file() {
-         return Err(AppError::Path("Path is not a file.".to_string()));
-    }
-    
-    // Load the document
-    let mut doc = Document::load(path)?;
+    // Load the document using memory mapping
+    let mut doc = load_pdf(&path)?;
 
     // Iterate through pages
     // doc.get_pages() returns a BTreeMap<u32, ObjectId> mapping page_number (1-based) to ObjectId
@@ -827,10 +803,9 @@ async fn compress_pdf_v2(
     output_path: String,
     settings: CompressionSettings,
 ) -> AppResult<CompressionResult> {
-    let input_path = std::path::Path::new(&path);
-    let original_size = std::fs::metadata(input_path)?.len();
+    let original_size = std::fs::metadata(&path)?.len();
 
-    let mut doc = Document::load(input_path)?;
+    let mut doc = load_pdf(&path)?;
     
     // 1. Basic cleaning
     if settings.remove_metadata {
@@ -901,11 +876,7 @@ async fn compress_pdf_v2(
 
 #[tauri::command]
 fn get_organiser_pdf_metadata(path: String) -> AppResult<Vec<PageMetadata>> {
-    let path = Path::new(&path);
-    if !path.is_file() {
-        return Err(AppError::Path("Path is not a file.".to_string()));
-    }
-    let doc = Document::load(path)?;
+    let doc = load_pdf(&path)?;
     let mut results = Vec::new();
 
     for (i, (_page_num, &page_id)) in doc.get_pages().iter().enumerate() {
@@ -958,13 +929,8 @@ fn apply_pdf_organisation(
     actions: Vec<PageAction>,
     output_path: String,
 ) -> AppResult<()> {
-    let in_path = Path::new(&input_path);
-    if !in_path.is_file() {
-        return Err(AppError::Path("Input path is not a file.".to_string()));
-    }
-
-    // Load the release PDF
-    let mut doc = Document::load(in_path)?;
+    // Load the release PDF using memory mapping
+    let mut doc = load_pdf(&input_path)?;
 
     // 1. Get current pages mapping (page_num -> object_id)
     let pages = doc.get_pages();
