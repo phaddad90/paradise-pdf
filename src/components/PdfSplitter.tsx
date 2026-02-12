@@ -56,12 +56,12 @@ export function PdfSplitter({
                     });
                     results.push(r);
                 } catch (e) {
-                    // Try to get diagnostics for huge files
+                    let debug_info = "";
                     try {
                         const diag = await invoke<any>("debug_pdf_structure", { path: f.path });
-                        console.log(`Diagnostics for ${f.name}:`, diag);
+                        debug_info = `Size: ${diag.file_size} bytes\n\n[Header]\n${diag.header}\n\n[Trailer]\n${diag.trailer}`;
                     } catch (diagErr) {
-                        console.error("Failed to get diagnostics:", diagErr);
+                        debug_info = `Failed to get diagnostics: ${diagErr}`;
                     }
 
                     results.push({
@@ -69,6 +69,7 @@ export function PdfSplitter({
                         page_count: 0,
                         parts: [],
                         error: String(e),
+                        debug_info,
                     });
                 }
             }
@@ -255,7 +256,16 @@ export function PdfSplitter({
                                 {splitPreviews.map((preview, idx) => (
                                     <div key={idx} style={{ marginTop: idx > 0 ? 12 : 0 }}>
                                         <strong>{preview.source_name}</strong> {preview.error ? (
-                                            <span style={{ color: 'var(--error)', marginLeft: 8 }}>⚠️ {preview.error}</span>
+                                            <div style={{ color: 'var(--error)', marginLeft: 8, marginTop: 4 }}>
+                                                ⚠️ {preview.error}
+                                                {preview.error.includes("invalid file trailer") && (
+                                                    <div style={{ fontSize: '0.8em', color: 'var(--text-secondary)', marginTop: 8, background: 'var(--bg-secondary)', padding: 8, borderRadius: 4, fontFamily: 'monospace', whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>
+                                                        <strong>Diagnostic Data (Please copy/paste this):</strong>
+                                                        <br /><br />
+                                                        {preview.debug_info}
+                                                    </div>
+                                                )}
+                                            </div>
                                         ) : (
                                             <>({preview.page_count} pages) → {preview.parts.length} file{preview.parts.length !== 1 ? "s" : ""}</>
                                         )}

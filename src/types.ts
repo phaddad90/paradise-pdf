@@ -24,6 +24,7 @@ export interface SplitPreviewResult {
   page_count: number;
   parts: SplitPreviewItem[];
   error?: string;
+  debug_info?: string;
 }
 
 export interface PageBoxes {
