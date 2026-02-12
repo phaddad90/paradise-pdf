@@ -458,26 +458,21 @@ fn split_pdf(
     // Also, I added `compress()` to the save operation to ensure output is small.
 
     for (i, &(start, end)) in chunk_ranges.iter().enumerate() {
-        // Clone is necessary to preserve shared resources for this slice safely
-        let mut part_doc = doc.clone();
+        // Optimization for large files: Instead of cloning doc in memory (which doubles memory usage),
+        // we reload from disk for each part. This uses more IO but significantly less peak RAM.
+        let mut part_doc = Document::load(&path)?;
         
-        // Calculate pages to delete
-        // Note: pages in lopdf are 1-based in get_pages mapping, but object IDs are internal.
-        // delete_pages takes page numbers (1-based).
         let to_delete: Vec<u32> = (1..=page_count)
             .filter(|&p| p < start || p > end)
             .collect();
             
         part_doc.delete_pages(&to_delete);
         part_doc.prune_objects();
-        
-        // Renumbering is important for clean output
         part_doc.renumber_objects();
         
         let out_name = format!("{}_part{}.pdf", stem, i + 1);
         let out_path = out_dir_path.join(&out_name);
         
-        // Save with Object compression to save space (streaming-like output)
         part_doc.save(&out_path)?;
         
         saved_paths.push(out_path.to_string_lossy().to_string());
@@ -827,7 +822,7 @@ fn rotate_pdf_pages(path: String, rotations: std::collections::HashMap<u32, i32>
 }
 
 #[tauri::command]
-pub async fn compress_pdf(
+async fn compress_pdf_v2(
     path: String,
     output_path: String,
     settings: CompressionSettings,
@@ -848,7 +843,7 @@ pub async fn compress_pdf(
     }
     
     if settings.remove_thumbnails {
-        for (_page_num, &page_id) in doc.get_pages() {
+        for (_page_num, page_id) in doc.get_pages() {
             if let Ok(page) = doc.get_object_mut(page_id).and_then(|o| o.as_dict_mut()) {
                 page.remove(b"Thumb");
             }
@@ -867,7 +862,7 @@ pub async fn compress_pdf(
     }
 
     if settings.remove_annotations {
-        for (_page_num, &page_id) in doc.get_pages() {
+        for (_page_num, page_id) in doc.get_pages() {
             if let Ok(page) = doc.get_object_mut(page_id).and_then(|o| o.as_dict_mut()) {
                 page.remove(b"Annots");
             }
@@ -1130,7 +1125,7 @@ pub fn run() {
             apply_pdf_organisation,
             mix_pdfs,
             protect_pdf,
-            compress_pdf,
+            compress_pdf_v2,
         ])
         .setup(move |app| {
             let url: tauri::Url = format!("http://localhost:{}", LOCALHOST_PORT).parse().unwrap();

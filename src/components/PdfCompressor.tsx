@@ -94,7 +94,7 @@ export function PdfCompressor({
         }));
 
         try {
-            const result = await invoke<CompressionResult>("compress_pdf", {
+            const result = await invoke<CompressionResult>("compress_pdf_v2", {
                 path: file.path,
                 outputPath,
                 settings,
@@ -231,9 +231,14 @@ export function PdfCompressor({
         <div className="tool-container compressor-tool">
             <div className="tool-header">
                 <h2 className="tool-title">Compress PDF</h2>
-                {files.length > 1 && (
-                    <button className="btn btn-primary" onClick={handleSaveAll}>Save All</button>
-                )}
+                <div className="header-actions" style={{ display: 'flex', gap: '8px' }}>
+                    {files.length > 0 && (
+                        <button className="btn btn-secondary" onClick={onReset}>Reset</button>
+                    )}
+                    {files.length > 1 && (
+                        <button className="btn btn-primary" onClick={handleSaveAll}>Save All</button>
+                    )}
+                </div>
             </div>
 
             <section className="section drop-area">

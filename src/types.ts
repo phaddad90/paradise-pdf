@@ -23,6 +23,7 @@ export interface SplitPreviewResult {
   source_name: string;
   page_count: number;
   parts: SplitPreviewItem[];
+  error?: string;
 }
 
 export interface PageBoxes {

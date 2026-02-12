@@ -55,11 +55,12 @@ export function PdfSplitter({
                         mode,
                     });
                     results.push(r);
-                } catch {
+                } catch (e) {
                     results.push({
                         source_name: f.name,
                         page_count: 0,
                         parts: [],
+                        error: String(e),
                     });
                 }
             }
@@ -245,15 +246,21 @@ export function PdfSplitter({
                                 <span className="label">Preview — files to create</span>
                                 {splitPreviews.map((preview, idx) => (
                                     <div key={idx} style={{ marginTop: idx > 0 ? 12 : 0 }}>
-                                        <strong>{preview.source_name}</strong> ({preview.page_count} pages) → {preview.parts.length} file{preview.parts.length !== 1 ? "s" : ""}
-                                        <ul style={{ marginTop: 4, paddingLeft: 18 }}>
-                                            {preview.parts.slice(0, 10).map((p, i) => (
-                                                <li key={i}>{p.output_name} (pages {p.page_range})</li>
-                                            ))}
-                                            {preview.parts.length > 10 && (
-                                                <li>… and {preview.parts.length - 10} more</li>
-                                            )}
-                                        </ul>
+                                        <strong>{preview.source_name}</strong> {preview.error ? (
+                                            <span style={{ color: 'var(--error)', marginLeft: 8 }}>⚠️ {preview.error}</span>
+                                        ) : (
+                                            <>({preview.page_count} pages) → {preview.parts.length} file{preview.parts.length !== 1 ? "s" : ""}</>
+                                        )}
+                                        {!preview.error && (
+                                            <ul style={{ marginTop: 4, paddingLeft: 18 }}>
+                                                {preview.parts.slice(0, 10).map((p, i) => (
+                                                    <li key={i}>{p.output_name} (pages {p.page_range})</li>
+                                                ))}
+                                                {preview.parts.length > 10 && (
+                                                    <li>… and {preview.parts.length - 10} more</li>
+                                                )}
+                                            </ul>
+                                        )}
                                     </div>
                                 ))}
                             </div>
