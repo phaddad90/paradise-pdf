@@ -24,6 +24,7 @@ export function PdfPropertyViewer({
     const [properties, setProperties] = useState<{ [path: string]: PdfProperties }>({});
     const [loading, setLoading] = useState<{ [path: string]: boolean }>({});
     const [error, setError] = useState<string | null>(null);
+    const [unit, setUnit] = useState<"mm" | "pts" | "in">("mm");
 
     useEffect(() => {
         const fetchProps = async () => {
@@ -45,10 +46,25 @@ export function PdfPropertyViewer({
         fetchProps();
     }, [files]);
 
+    const formatDimension = (pts: number) => {
+        switch (unit) {
+            case "mm": return `${(pts * 0.352778).toFixed(1)} mm`;
+            case "in": return `${(pts / 72).toFixed(2)} in`;
+            default: return `${pts.toFixed(1)} pts`;
+        }
+    };
+
     return (
         <div className="tool-container property-viewer">
             <div className="tool-header">
-                <h2 className="tool-title">Property Viewer</h2>
+                <div className="title-group">
+                    <h2 className="tool-title">Property Viewer</h2>
+                    <div className="unit-selector">
+                        <button className={unit === "mm" ? "active" : ""} onClick={() => setUnit("mm")}>mm</button>
+                        <button className={unit === "pts" ? "active" : ""} onClick={() => setUnit("pts")}>pts</button>
+                        <button className={unit === "in" ? "active" : ""} onClick={() => setUnit("in")}>in</button>
+                    </div>
+                </div>
                 <div className="header-actions">
                     {files.length > 0 && <button className="btn btn-secondary" onClick={onReset}>Reset</button>}
                 </div>
@@ -76,7 +92,8 @@ export function PdfPropertyViewer({
                                             <div className="prop-group">
                                                 <label>General</label>
                                                 <div className="prop-row"><span>Pages:</span> <span>{properties[file.path].page_count}</span></div>
-                                                <div className="prop-row"><span>Page Size:</span> <span>{properties[file.path].page_size}</span></div>
+                                                <div className="prop-row"><span>Page Size:</span> <span>{formatDimension(properties[file.path].page_width)} × {formatDimension(properties[file.path].page_height)}</span></div>
+                                                <div className="prop-row"><span>Colorspace:</span> <span className="colorspace-tag">{properties[file.path].colorspace}</span></div>
                                                 <div className="prop-row"><span>Doc PPI:</span> <span>{properties[file.path].doc_dpi}</span></div>
                                                 <div className="prop-row"><span>Version:</span> <span>PDF {properties[file.path].version}</span></div>
                                                 <div className="prop-row"><span>Security:</span> <span>{properties[file.path].encrypted ? "🔒 Encrypted" : "🔓 None"}</span></div>
@@ -133,7 +150,55 @@ export function PdfPropertyViewer({
             {error && <div className="status error">{error}</div>}
 
             <style>{`
-        .property-viewer .file-grid {
+        .property-viewer .tool-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 24px;
+        }
+
+        .title-group {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+
+        .unit-selector {
+          display: flex;
+          background: var(--bg-subtle);
+          padding: 3px;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+        }
+
+        .unit-selector button {
+          padding: 4px 12px;
+          border: none;
+          background: none;
+          color: var(--text-secondary);
+          font-size: 11px;
+          font-weight: 600;
+          cursor: pointer;
+          border-radius: 6px;
+          transition: all 0.2s ease;
+        }
+
+        .unit-selector button.active {
+          background: var(--surface);
+          color: var(--primary);
+          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .colorspace-tag {
+          background: var(--primary-subtle);
+          color: var(--primary);
+          padding: 1px 6px;
+          border-radius: 4px;
+          font-weight: 600 !important;
+          font-size: 11px;
+        }
+
+        .file-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
           gap: 16px;

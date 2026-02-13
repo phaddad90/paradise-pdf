@@ -130,6 +130,9 @@ pub struct PdfProperties {
     pub fonts: Vec<String>,
     pub image_dpi: Vec<u32>,
     pub doc_dpi: u32,
+    pub colorspace: String,
+    pub page_width: f32,
+    pub page_height: f32,
 }
 
 // --- Virtual Repair Reader for large/malformed PDFs ---
@@ -1177,22 +1180,50 @@ fn get_pdf_properties(path: String) -> AppResult<PdfProperties> {
     let page_count = pages.len() as u32;
 
     // Get page size from first page
-    let mut page_width_pts = 595.0; // Default A4 width
-    let page_size = if let Some(&page_id) = pages.get(&1) {
+    let mut page_width = 0.0;
+    let mut page_height = 0.0;
+    let mut colorspace = "DeviceRGB (Likely)".to_string();
+
+    if let Some(&page_id) = pages.get(&1) {
         let page_dict = doc.get_dictionary(page_id)?;
+        
+        // Dimensions
         if let Ok(Object::Array(rect)) = page_dict.get(b"MediaBox") {
             if rect.len() >= 4 {
                 let x1 = rect[0].as_float().unwrap_or(0.0);
                 let y1 = rect[1].as_float().unwrap_or(0.0);
                 let x2 = rect[2].as_float().unwrap_or(0.0);
                 let y2 = rect[3].as_float().unwrap_or(0.0);
-                page_width_pts = (x2 - x1).abs();
-                format!("{:.1} x {:.1} pts", (x2 - x1).abs(), (y2 - y1).abs())
-            } else { "Unknown".to_string() }
-        } else { "Unknown".to_string() }
-    } else {
-        "Unknown".to_string()
-    };
+                page_width = (x2 - x1).abs();
+                page_height = (y2 - y1).abs();
+            }
+        }
+
+        // Colorspace detection (Advanced)
+        if let Ok(resources) = page_dict.get(b"Resources").and_then(|o| doc.dereference(o)).and_then(|(_, o)| o.as_dict()) {
+            if let Ok(cs_dict) = resources.get(b"ColorSpace").and_then(|o| doc.dereference(o)).and_then(|(_, o)| o.as_dict()) {
+                if cs_dict.has(b"DeviceCMYK") || cs_dict.iter().any(|(k, _)| k == b"CMYK") {
+                    colorspace = "DeviceCMYK".to_string();
+                } else if cs_dict.has(b"DeviceGray") || cs_dict.iter().any(|(k, _)| k == b"Gray") {
+                    colorspace = "DeviceGray".to_string();
+                }
+            }
+            // Check for CMYK/Gray in XObjects too
+            if let Ok(xobjects) = resources.get(b"XObject").and_then(|o| doc.dereference(o)).and_then(|(_, o)| o.as_dict()) {
+                for (_, xo_ref) in xobjects.iter() {
+                    if let Ok(xo) = doc.dereference(xo_ref).and_then(|(_, o)| o.as_dict()) {
+                        if let Ok(xo_cs) = xo.get(b"ColorSpace").and_then(|o| doc.dereference(o)) {
+                            match xo_cs.1 {
+                                Object::Name(n) if n == b"DeviceCMYK" => colorspace = "DeviceCMYK".to_string(),
+                                Object::Name(n) if n == b"DeviceGray" => colorspace = "DeviceGray".to_string(),
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     let mut metadata = std::collections::HashMap::new();
     let mut created = String::new();
@@ -1235,7 +1266,9 @@ fn get_pdf_properties(path: String) -> AppResult<PdfProperties> {
                 if dict.get(b"Subtype").map_or(false, |t| t.as_name().map_or(false, |n| n == b"Image")) {
                     if let (Ok(w), Ok(h)) = (dict.get(b"Width").and_then(|o| o.as_i64()), dict.get(b"Height").and_then(|o| o.as_i64())) {
                         // Calculate an estimated DPI if it was to fill the page width
-                        let dpi = (w as f32 * 72.0 / page_width_pts) as u32;
+                        let dpi = if page_width > 0.0 {
+                            (w as f32 * 72.0 / page_width) as u32
+                        } else { 72 };
                         image_dpis.push(dpi);
                     }
                 }
@@ -1246,7 +1279,7 @@ fn get_pdf_properties(path: String) -> AppResult<PdfProperties> {
     Ok(PdfProperties {
         version: doc.version.clone(),
         page_count,
-        page_size,
+        page_size: String::new(), // Legacy field keeping to avoid breaking too much at once
         metadata,
         created,
         modified,
@@ -1256,6 +1289,9 @@ fn get_pdf_properties(path: String) -> AppResult<PdfProperties> {
         fonts: fonts.into_iter().collect(),
         image_dpi: image_dpis,
         doc_dpi: 72,
+        colorspace,
+        page_width,
+        page_height,
     })
 }
 

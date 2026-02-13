@@ -98,4 +98,7 @@ export interface PdfProperties {
   fonts: string[];
   image_dpi: number[];
   doc_dpi: number;
+  colorspace: string;
+  page_width: number;
+  page_height: number;
 }
