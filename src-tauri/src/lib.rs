@@ -1157,6 +1157,7 @@ pub fn run() {
                         None,
                         Some(tauri::menu::AboutMetadata {
                             authors: Some(vec!["Peter Haddad".to_string()]),
+                            comments: Some("Author: Peter Haddad".to_string()),
                             copyright: Some("© 2026".to_string()),
                             ..Default::default()
                         }),

@@ -1,6 +1,6 @@
 {
   "productName": "Paradise PDF",
-  "version": "3.5.9",
+  "version": "3.6.0",
   "identifier": "com.paradisepdf",
   "build": {
     "frontendDist": "../dist",
