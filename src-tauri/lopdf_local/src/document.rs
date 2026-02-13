@@ -97,13 +97,12 @@ impl Document {
 
     const DEREF_LIMIT: usize = 128;
 
-    pub fn extract_pages(&self, page_numbers: &[u32]) -> Result<Document> {
-        let pages = self.get_pages();
+    pub fn extract_pages(&self, page_mapping: &BTreeMap<u32, ObjectId>, page_numbers: &[u32]) -> Result<Document> {
         let mut target_ids = HashSet::new();
         let mut target_page_ids = Vec::new();
 
         for &num in page_numbers {
-            if let Some(&id) = pages.get(&num) {
+            if let Some(&id) = page_mapping.get(&num) {
                 target_page_ids.push(id);
                 target_ids.insert(id);
             }

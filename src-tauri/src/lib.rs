@@ -566,9 +566,9 @@ fn split_pdf(
         let _ = app.emit("split-progress", i as u32);
 
         // HIGH PERFORMANCE: extract_pages only copies required objects.
-        // This is near-instant compared to cloning a 4GB doc.
+        // We pass the pre-computed `pages` map to avoid O(P) walks in the loop.
         let page_range: Vec<u32> = (start..=end).collect();
-        let mut part_doc = doc.extract_pages(&page_range)?;
+        let mut part_doc = doc.extract_pages(&pages, &page_range)?;
 
         let out_name = format!("{}_part{}.pdf", stem, i + 1);
         let out_path = out_dir_path.join(&out_name);
@@ -1152,7 +1152,15 @@ pub fn run() {
                 "Paradise PDF",
                 true,
                 &[
-                    &PredefinedMenuItem::about(handle, None, None)?,
+                    &PredefinedMenuItem::about(
+                        handle,
+                        None,
+                        Some(tauri::menu::AboutMetadata {
+                            authors: Some(vec!["Peter Haddad".to_string()]),
+                            copyright: Some("© 2026".to_string()),
+                            ..Default::default()
+                        }),
+                    )?,
                     &PredefinedMenuItem::separator(handle)?,
                     &check_for_updates,
                     &PredefinedMenuItem::separator(handle)?,
