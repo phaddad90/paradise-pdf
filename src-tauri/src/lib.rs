@@ -2,7 +2,7 @@
 //! File layer: listing, rename. PDF layer: split.
 
 use lopdf::dictionary;
-use lopdf::Document;
+use lopdf::{Document, Object};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -114,6 +114,22 @@ pub struct PdfDiagnosticResult {
     pub header: String,
     pub trailer: String,
     pub file_size: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PdfProperties {
+    pub version: String,
+    pub page_count: u32,
+    pub page_size: String,
+    pub metadata: std::collections::HashMap<String, String>,
+    pub created: String,
+    pub modified: String,
+    pub encrypted: bool,
+    pub producer: String,
+    pub creator: String,
+    pub fonts: Vec<String>,
+    pub image_dpi: Vec<u32>,
+    pub doc_dpi: u32,
 }
 
 // --- Virtual Repair Reader for large/malformed PDFs ---
@@ -1134,6 +1150,115 @@ fn debug_pdf_structure(path: String) -> AppResult<PdfDiagnosticResult> {
     })
 }
 
+fn decode_pdf_text(obj: &Object) -> String {
+    match obj {
+        Object::String(bytes, _) => {
+            if bytes.starts_with(&[0xFE, 0xFF]) {
+                let utf16: Vec<u16> = bytes[2..]
+                    .chunks_exact(2)
+                    .map(|c| u16::from_be_bytes([c[0], c[1]]))
+                    .collect();
+                String::from_utf16_lossy(&utf16)
+            } else if bytes.starts_with(&[0xEF, 0xBB, 0xBF]) {
+                String::from_utf8_lossy(&bytes[3..]).to_string()
+            } else {
+                bytes.iter().map(|&b| b as char).collect()
+            }
+        }
+        Object::Name(bytes) => String::from_utf8_lossy(bytes).to_string(),
+        _ => String::new(),
+    }
+}
+
+#[tauri::command]
+fn get_pdf_properties(path: String) -> AppResult<PdfProperties> {
+    let doc = load_pdf(&path)?;
+    let pages = doc.get_pages();
+    let page_count = pages.len() as u32;
+
+    // Get page size from first page
+    let mut page_width_pts = 595.0; // Default A4 width
+    let page_size = if let Some(&page_id) = pages.get(&1) {
+        let page_dict = doc.get_dictionary(page_id)?;
+        if let Ok(Object::Array(rect)) = page_dict.get(b"MediaBox") {
+            if rect.len() >= 4 {
+                let x1 = rect[0].as_float().unwrap_or(0.0);
+                let y1 = rect[1].as_float().unwrap_or(0.0);
+                let x2 = rect[2].as_float().unwrap_or(0.0);
+                let y2 = rect[3].as_float().unwrap_or(0.0);
+                page_width_pts = (x2 - x1).abs();
+                format!("{:.1} x {:.1} pts", (x2 - x1).abs(), (y2 - y1).abs())
+            } else { "Unknown".to_string() }
+        } else { "Unknown".to_string() }
+    } else {
+        "Unknown".to_string()
+    };
+
+    let mut metadata = std::collections::HashMap::new();
+    let mut created = String::new();
+    let mut modified = String::new();
+    let mut producer = String::new();
+    let mut creator = String::new();
+
+    if let Ok(info_id) = doc.trailer.get(b"Info").and_then(|o| o.as_reference()) {
+        if let Ok(info) = doc.get_object(info_id).and_then(|o| o.as_dict()) {
+            for (key, value) in info {
+                let key_str = String::from_utf8_lossy(key).to_string();
+                let val_str = decode_pdf_text(value);
+                if !val_str.is_empty() {
+                    match key_str.as_str() {
+                        "CreationDate" => created = val_str,
+                        "ModDate" => modified = val_str,
+                        "Producer" => producer = val_str,
+                        "Creator" => creator = val_str,
+                        _ => { metadata.insert(key_str, val_str); }
+                    }
+                }
+            }
+        }
+    }
+
+    // Font detection
+    let mut fonts = std::collections::HashSet::new();
+    let mut image_dpis = Vec::new();
+
+    for id in doc.objects.keys() {
+        if let Ok(obj) = doc.get_object(*id) {
+            if let Ok(dict) = obj.as_dict() {
+                // Fonts
+                if dict.get(b"Type").map_or(false, |t| t.as_name().map_or(false, |n| n == b"Font")) {
+                    if let Ok(base_font) = dict.get(b"BaseFont").and_then(|o| o.as_name()) {
+                        fonts.insert(String::from_utf8_lossy(base_font).to_string());
+                    }
+                }
+                // Images (XObjects)
+                if dict.get(b"Subtype").map_or(false, |t| t.as_name().map_or(false, |n| n == b"Image")) {
+                    if let (Ok(w), Ok(h)) = (dict.get(b"Width").and_then(|o| o.as_i64()), dict.get(b"Height").and_then(|o| o.as_i64())) {
+                        // Calculate an estimated DPI if it was to fill the page width
+                        let dpi = (w as f32 * 72.0 / page_width_pts) as u32;
+                        image_dpis.push(dpi);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(PdfProperties {
+        version: doc.version.clone(),
+        page_count,
+        page_size,
+        metadata,
+        created,
+        modified,
+        encrypted: doc.trailer.has(b"Encrypt"),
+        producer,
+        creator,
+        fonts: fonts.into_iter().collect(),
+        image_dpi: image_dpis,
+        doc_dpi: 72,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     const LOCALHOST_PORT: u16 = 1420;
@@ -1225,6 +1350,7 @@ pub fn run() {
             protect_pdf,
             compress_pdf_v2,
             debug_pdf_structure,
+            get_pdf_properties,
         ])
         .setup(move |app| {
             let url: tauri::Url = format!("http://localhost:{}", LOCALHOST_PORT).parse().unwrap();

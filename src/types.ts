@@ -84,3 +84,18 @@ export interface PdfDiagnosticResult {
   trailer: string;
   file_size: number;
 }
+
+export interface PdfProperties {
+  version: string;
+  page_count: number;
+  page_size: string;
+  metadata: { [key: string]: string };
+  created: string;
+  modified: string;
+  encrypted: boolean;
+  producer: string;
+  creator: string;
+  fonts: string[];
+  image_dpi: number[];
+  doc_dpi: number;
+}

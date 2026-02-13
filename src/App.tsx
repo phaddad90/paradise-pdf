@@ -14,9 +14,10 @@ import { PdfRotator } from "./components/PdfRotator";
 import PdfOrganiser from "./components/PdfOrganiser";
 import { PdfMixer } from "./components/PdfMixer";
 import { PdfProtect } from "./components/PdfProtect";
-import { PdfCompressor } from "./components/PdfCompressor";
+// import { PdfCompressor } from "./components/PdfCompressor";
+import { PdfPropertyViewer } from "./components/PdfPropertyViewer";
 
-type ToolId = "pdf-bulk-renaming" | "pdf-splitter" | "pdf-merger" | "page-box-inspector" | "pdf-rotator" | "pdf-organiser" | "pdf-mixer" | "pdf-protect" | "pdf-compressor";
+type ToolId = "pdf-bulk-renaming" | "pdf-splitter" | "pdf-merger" | "page-box-inspector" | "pdf-rotator" | "pdf-organiser" | "pdf-mixer" | "pdf-protect" | "pdf-property-viewer";
 
 function isPdf(name: string): boolean {
   return name.toLowerCase().endsWith(".pdf");
@@ -307,6 +308,19 @@ function App() {
                 <button
                   type="button"
                   role="menuitem"
+                  className={currentTool === "pdf-property-viewer" ? "active" : ""}
+                  onClick={() => {
+                    setCurrentTool("pdf-property-viewer");
+                    setToolsOpen(false);
+                  }}
+                >
+                  Property Viewer
+                </button>
+              </li>
+              <li role="none">
+                <button
+                  type="button"
+                  role="menuitem"
                   className={currentTool === "pdf-protect" ? "active" : ""}
                   onClick={() => {
                     setCurrentTool("pdf-protect");
@@ -316,6 +330,7 @@ function App() {
                   Protect PDF
                 </button>
               </li>
+              {/* Deferring Compressor for now
               <li role="none">
                 <button
                   type="button"
@@ -329,6 +344,7 @@ function App() {
                   Compress PDF
                 </button>
               </li>
+              */}
             </ul>
           )}
         </div>
@@ -455,6 +471,19 @@ function App() {
           />
         )}
 
+        {currentTool === "pdf-property-viewer" && (
+          <PdfPropertyViewer
+            files={pdfFiles}
+            onPickFiles={pickFiles}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            dragOver={dragOver}
+            onReset={handleReset}
+          />
+        )}
+
+        {/* 
         {currentTool === "pdf-compressor" && (
           <PdfCompressor
             files={files}
@@ -468,6 +497,7 @@ function App() {
             status={status}
           />
         )}
+        */}
       </main>
     </div>
   );
