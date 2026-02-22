@@ -35,7 +35,7 @@ export function PdfPropertyViewer({
                         const props = await invoke<PdfProperties>("get_pdf_properties", { path: file.path });
                         setProperties(prev => ({ ...prev, [file.path]: props }));
                     } catch (err) {
-                        console.error(err);
+                        if (import.meta.env.DEV) console.error(err);
                         setError(String(err));
                     } finally {
                         setLoading(prev => ({ ...prev, [file.path]: false }));

@@ -17,11 +17,16 @@ npm run tauri build
 The resulting `.app` or `.dmg` will be in `src-tauri/target/release/bundle/`. 
 **Always install and open this build manually to verify tool functionality (like Protect PDF) before committing.**
 
-## 3. Commit & Push
+## 3. Version Bump (if releasing)
+Update version in all three locations:
+- `package.json` → `"version"`
+- `src-tauri/Cargo.toml` → `version`
+- `src-tauri/tauri.conf.json` → `"version"`
+
+## 4. Commit & Push
 Only after the manual install test passes:
 ```bash
 git add .
 git commit -m "feat/fix: descriptive message"
-npm run version:bump  # if applicable
 git push origin main
 ```

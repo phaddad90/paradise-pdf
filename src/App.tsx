@@ -14,10 +14,11 @@ import { PdfRotator } from "./components/PdfRotator";
 import PdfOrganiser from "./components/PdfOrganiser";
 import { PdfMixer } from "./components/PdfMixer";
 import { PdfProtect } from "./components/PdfProtect";
-// import { PdfCompressor } from "./components/PdfCompressor";
 import { PdfPropertyViewer } from "./components/PdfPropertyViewer";
 
 type ToolId = "pdf-bulk-renaming" | "pdf-splitter" | "pdf-merger" | "page-box-inspector" | "pdf-rotator" | "pdf-organiser" | "pdf-mixer" | "pdf-protect" | "pdf-property-viewer";
+
+const VALID_TOOLS: ToolId[] = ["pdf-bulk-renaming", "pdf-splitter", "pdf-merger", "page-box-inspector", "pdf-rotator", "pdf-organiser", "pdf-mixer", "pdf-protect", "pdf-property-viewer"];
 
 function isPdf(name: string): boolean {
   return name.toLowerCase().endsWith(".pdf");
@@ -31,7 +32,7 @@ function App() {
   const [currentTool, setCurrentTool] = useState<ToolId>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("lastActiveTool");
-      if (saved) return saved as ToolId;
+      if (saved && (VALID_TOOLS as string[]).includes(saved)) return saved as ToolId;
     }
     return "pdf-bulk-renaming";
   });
@@ -58,7 +59,7 @@ function App() {
         });
       }
     } catch (error) {
-      console.error('Failed to check for updates:', error);
+      if (import.meta.env.DEV) console.error('Failed to check for updates:', error);
       if (manual) {
         await ask(`Failed to check for updates: ${error}`, {
           title: 'Update Check Failed',
@@ -204,6 +205,7 @@ function App() {
             className="tools-trigger"
             aria-expanded={toolsOpen}
             aria-haspopup="true"
+            aria-label="Toggle tools menu"
             onClick={() => setToolsOpen((o) => !o)}
           >
             Tools
@@ -330,21 +332,6 @@ function App() {
                   Protect PDF
                 </button>
               </li>
-              {/* Deferring Compressor for now
-              <li role="none">
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={currentTool === "pdf-compressor" ? "active" : ""}
-                  onClick={() => {
-                    setCurrentTool("pdf-compressor");
-                    setToolsOpen(false);
-                  }}
-                >
-                  Compress PDF
-                </button>
-              </li>
-              */}
             </ul>
           )}
         </div>
@@ -483,21 +470,6 @@ function App() {
           />
         )}
 
-        {/* 
-        {currentTool === "pdf-compressor" && (
-          <PdfCompressor
-            files={files}
-            onPickFiles={pickFiles}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            dragOver={dragOver}
-            onReset={handleReset}
-            setStatus={setStatus}
-            status={status}
-          />
-        )}
-        */}
       </main>
     </div>
   );

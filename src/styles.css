@@ -20,7 +20,10 @@
   --shadow-hover: 0 4px 20px rgba(14, 165, 233, 0.2);
   --shadow-soft: 0 4px 16px rgba(14, 165, 233, 0.08);
   --bg-secondary: #f8fafc;
-  /* Light gray for cards/backgrounds */
+  --hover: rgba(14, 165, 233, 0.08);
+  --primary: var(--accent);
+  --primary-subtle: rgba(14, 165, 233, 0.1);
+  --danger: var(--error);
 }
 
 /* --- Layout Utilities --- */
@@ -537,4 +540,18 @@ body {
   transition: width 0.3s ease;
 }
 
+/* --- Context Menu (PDF Organiser) --- */
+.context-menu-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+}
 
+.context-menu-item:hover {
+  background: var(--hover);
+}
+
+.context-menu-item.delete:hover {
+  background: rgba(220, 38, 38, 0.1);
+}

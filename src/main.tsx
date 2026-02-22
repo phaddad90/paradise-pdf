@@ -15,5 +15,5 @@ try {
   );
 } catch (err) {
   rootEl.innerHTML = `<p style="padding:1rem;font-family:system-ui;color:#c00">Failed to load: ${String(err)}</p>`;
-  console.error(err);
+  if (import.meta.env.DEV) console.error(err);
 }

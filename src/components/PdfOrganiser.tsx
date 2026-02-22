@@ -165,17 +165,8 @@ export default function PdfOrganiser({
                 undo();
             } else if (
                 ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'z') ||
-                ((e.metaKey || e.ctrlKey) && e.key === 'y') ||
-                ((e.metaKey || e.ctrlKey) && e.key === 'x') // Requested shortcut
+                ((e.metaKey || e.ctrlKey) && e.key === 'y')
             ) {
-                // Only provide e.preventDefault() for redo if we are not in a context where cut is common
-                // But since this is a global listener on the organiser, and we specifically want Cmd+X for redo...
-                if (e.key === 'x' && (e.metaKey || e.ctrlKey)) {
-                    // Check if we are in an input or textarea
-                    if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
-                        return;
-                    }
-                }
                 e.preventDefault();
                 redo();
             }
@@ -447,7 +438,7 @@ export default function PdfOrganiser({
                                 onClick={redo}
                                 disabled={future.length === 0}
                                 className="btn btn-secondary"
-                                title="Redo (Cmd+X)"
+                                title="Redo (Cmd+Shift+Z)"
                                 style={{ padding: '4px 8px', fontSize: '12px' }}
                             >
                                 ↪️ Redo
@@ -581,21 +572,3 @@ export default function PdfOrganiser({
         </div>
     );
 }
-
-// Add CSS for context menu items
-const styles = document.createElement('style');
-styles.innerHTML = `
-    .context-menu-item {
-        padding: 8px 12px;
-        cursor: pointer;
-        font-size: 14px;
-        color: var(--text);
-    }
-    .context-menu-item:hover {
-        background: var(--hover);
-    }
-    .context-menu-item.delete:hover {
-        background: rgba(220, 38, 38, 0.1);
-    }
-`;
-document.head.appendChild(styles);

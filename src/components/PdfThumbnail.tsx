@@ -29,7 +29,7 @@ const getCachedDocument = (path: string) => {
                 const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
                 return loadingTask.promise;
             } catch (e) {
-                console.error("Failed to load PDF for thumbnail:", e);
+                if (import.meta.env.DEV) console.error("Failed to load PDF for thumbnail:", e);
                 delete docCache[path]; // Remove failed attempt
                 throw e;
             }
@@ -90,7 +90,7 @@ export const PdfThumbnail: React.FC<PdfThumbnailProps> = ({
                 }
             } catch (err: any) {
                 if (err.name !== 'RenderingCancelledException') {
-                    console.error(`Error rendering page ${pageNumber}:`, err);
+                    if (import.meta.env.DEV) console.error(`Error rendering page ${pageNumber}:`, err);
                     if (mounted) setError("Failed to load image");
                 }
             } finally {

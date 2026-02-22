@@ -2,7 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Disable App Sandbox (required for file manipulation tools) -->
+	<!-- Disable App Sandbox: required for batch rename/move/split across arbitrary directories.
+	     user-selected.read-write alone is insufficient since the app modifies files in-place
+	     and writes output to the same directory as the source (not always user-picked). -->
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
 	

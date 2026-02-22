@@ -150,21 +150,21 @@ export function PageBoxInspector({
 
             {boxData && (
                 <section className="section">
-                    <div style={{ overflowX: 'auto', border: '1px solid var(--border-color)', borderRadius: 8 }}>
+                    <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                             <thead>
                                 <tr style={{ background: 'var(--bg-secondary)', textAlign: 'left' }}>
-                                    <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', fontWeight: 600 }}>Page</th>
-                                    <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', fontWeight: 600 }}>MediaBox (W x H)</th>
-                                    <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', fontWeight: 600 }}>CropBox (W x H)</th>
-                                    <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', fontWeight: 600 }}>TrimBox (W x H)</th>
-                                    <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', fontWeight: 600 }}>BleedBox (W x H)</th>
-                                    <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-color)', fontWeight: 600 }}>ArtBox (W x H)</th>
+                                    <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>Page</th>
+                                    <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>MediaBox (W x H)</th>
+                                    <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>CropBox (W x H)</th>
+                                    <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>TrimBox (W x H)</th>
+                                    <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>BleedBox (W x H)</th>
+                                    <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>ArtBox (W x H)</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {boxData.map((page, idx) => (
-                                    <tr key={page.page_number} style={{ borderBottom: idx < boxData.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+                                    <tr key={page.page_number} style={{ borderBottom: idx < boxData.length - 1 ? '1px solid var(--border)' : 'none' }}>
                                         <td style={{ padding: '12px 16px' }}>{page.page_number}</td>
                                         <td style={{ padding: '12px 16px', fontFamily: 'monospace' }}>{formatBoxString(page.media_box, selectedUnit)}</td>
                                         <td style={{ padding: '12px 16px', fontFamily: 'monospace' }}>{formatBoxString(page.crop_box, selectedUnit)}</td>

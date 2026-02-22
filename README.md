@@ -1,10 +1,10 @@
 # Paradise PDF
 
-**Paradise PDF** is a native macOS utility app designed for fast file manipulation. It features a powerful batch file renamer and a PDF splitter tool.
+**Paradise PDF** is a native macOS utility app designed for fast file manipulation and PDF operations.
 
 Built with [Tauri v2](https://v2.tauri.app/), combining the performance of Rust with a React/Vite frontend.
 
-**Version:** 2.0.0
+**Version:** 3.6.2
 **Author:** Peter Haddad
 
 ---
@@ -15,17 +15,36 @@ Built with [Tauri v2](https://v2.tauri.app/), combining the performance of Rust 
 Rename thousands of files instantly using a flexible pattern system.
 
 - **Smart Numbering:** Use placeholders like `#` (1, 2…), `##` (01, 02…), or `{version}` for automatic numbering.
-- **Pattern Example:** `Vacation-Photos-###` → `Vacation-Photos-001.jpg`, `Vacation-Photos-002.jpg`.
 - **Conflict Detection:** Warns you if a rename will overwrite an existing file.
 - **Live Preview:** See exactly how filenames will look before applying changes.
 - **Drag & Drop:** Support for files and folders.
 
 ### 2. PDF Splitter
-Easily break down large PDF documents into smaller files.
+Break down large PDF documents into smaller files. Optimized for 4GB+ PDFs.
 
-- **Split Every N Pages:** Automatically chunk a PDF (e.g., split every 5 pages).
-- **One File Per Page:** Extract every single page into its own PDF file.
-- **Preview:** See the resulting file structure before you split.
+- **Split Every N Pages** or **One File Per Page**.
+- **Preview** the resulting file structure before splitting.
+
+### 3. PDF Merger
+Combine multiple PDFs into a single document.
+
+### 4. PDF Organiser
+Reorder, delete, or insert blank pages with a drag-and-drop grid editor.
+
+### 5. Rotate Pages
+Batch rotate individual pages or all pages at once.
+
+### 6. Alternate & Mix
+Interleave pages from multiple PDFs (e.g., front/back scanning).
+
+### 7. Page Box Inspector
+Inspect MediaBox, CropBox, TrimBox, BleedBox, and ArtBox for every page.
+
+### 8. Protect PDF
+Password-protect PDFs with 128-bit RC4 encryption.
+
+### 9. Property Viewer
+View PDF metadata, fonts, image DPI, colorspace, and page dimensions.
 
 ---
 

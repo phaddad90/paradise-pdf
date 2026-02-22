@@ -115,7 +115,7 @@ export function PdfRotator({
                     }
                 }
             } catch (e) {
-                console.error(e);
+                if (import.meta.env.DEV) console.error(e);
             }
         };
 

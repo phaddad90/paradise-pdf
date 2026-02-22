@@ -194,9 +194,10 @@ impl<'a> Seek for SeekingChain<'a> {
 
 fn load_pdf<P: AsRef<Path>>(path: P) -> AppResult<Document> {
     let file = fs::File::open(path)?;
-    // Memory mapping is unsafe because the file could be truncated 
-    // by another process while we are reading it. 
-    // In our desktop app context, this is a reasonable risk.
+    // SAFETY: Memory mapping is unsafe because the OS delivers SIGBUS if the file
+    // is truncated by another process while mapped. In our single-user desktop app
+    // context this is an acceptable risk — users don't typically modify the same PDF
+    // from two apps simultaneously. On networked/FUSE filesystems this could crash.
     let mmap = unsafe { Mmap::map(&file)? };
     
     // 1. Try standard load from memory
@@ -211,7 +212,11 @@ fn load_pdf<P: AsRef<Path>>(path: P) -> AppResult<Document> {
                 let mut reader = SeekingChain::new(&mmap, patch);
                 match Document::load_from(&mut reader) {
                     Ok(doc) => Ok(doc),
-                    Err(_) => Err(AppError::Pdf(e)), // Return original error if repair also fails
+                    Err(repair_err) => {
+                        // Both standard load and virtual repair failed.
+                        // Return the repair error since it's more specific.
+                        Err(AppError::Pdf(repair_err))
+                    }
                 }
             } else {
                 Err(AppError::Pdf(e))
@@ -832,14 +837,9 @@ fn protect_pdf(
 
     // PDF encryption requires /ID array in trailer. Add if missing.
     if doc.trailer.get(b"ID").is_err() {
-        // Generate a unique ID based on current time and path
-        use std::time::{SystemTime, UNIX_EPOCH};
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos();
-        let id_string = format!("{:032x}", timestamp);
-        let id_bytes = id_string.as_bytes().to_vec();
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        let id_bytes: Vec<u8> = (0..16).map(|_| rng.gen::<u8>()).collect();
         
         // PDF spec requires array of two identical byte strings for new documents
         let id_array = Object::Array(vec![
@@ -879,6 +879,15 @@ fn protect_pdf(
 
 #[tauri::command]
 fn rotate_pdf_pages(path: String, rotations: std::collections::HashMap<u32, i32>) -> AppResult<()> {
+    // Validate all angles are multiples of 90
+    for (&page, &angle) in &rotations {
+        if angle % 90 != 0 {
+            return Err(AppError::Validation(
+                format!("Rotation for page {} must be a multiple of 90 degrees, got {}", page, angle),
+            ));
+        }
+    }
+
     // Load the document using memory mapping
     let mut doc = load_pdf(&path)?;
 
@@ -1131,7 +1140,6 @@ fn apply_pdf_organisation(
 
 #[tauri::command]
 fn debug_pdf_structure(path: String) -> AppResult<PdfDiagnosticResult> {
-    use std::io::{Read, Seek, SeekFrom};
     let mut file = fs::File::open(&path)?;
     let metadata = file.metadata()?;
     let file_size = metadata.len();
@@ -1157,7 +1165,10 @@ fn decode_pdf_text(obj: &Object) -> String {
     match obj {
         Object::String(bytes, _) => {
             if bytes.starts_with(&[0xFE, 0xFF]) {
-                let utf16: Vec<u16> = bytes[2..]
+                let tail = &bytes[2..];
+                // Guard against odd-length UTF-16 data from malformed PDFs
+                let even_len = tail.len() & !1;
+                let utf16: Vec<u16> = tail[..even_len]
                     .chunks_exact(2)
                     .map(|c| u16::from_be_bytes([c[0], c[1]]))
                     .collect();
@@ -1264,7 +1275,7 @@ fn get_pdf_properties(path: String) -> AppResult<PdfProperties> {
                 }
                 // Images (XObjects)
                 if dict.get(b"Subtype").map_or(false, |t| t.as_name().map_or(false, |n| n == b"Image")) {
-                    if let (Ok(w), Ok(h)) = (dict.get(b"Width").and_then(|o| o.as_i64()), dict.get(b"Height").and_then(|o| o.as_i64())) {
+                    if let (Ok(w), Ok(_h)) = (dict.get(b"Width").and_then(|o| o.as_i64()), dict.get(b"Height").and_then(|o| o.as_i64())) {
                         // Calculate an estimated DPI if it was to fill the page width
                         let dpi = if page_width > 0.0 {
                             (w as f32 * 72.0 / page_width) as u32
@@ -1389,7 +1400,9 @@ pub fn run() {
             get_pdf_properties,
         ])
         .setup(move |app| {
-            let url: tauri::Url = format!("http://localhost:{}", LOCALHOST_PORT).parse().unwrap();
+            let url: tauri::Url = format!("http://localhost:{}", LOCALHOST_PORT)
+                .parse()
+                .expect("localhost URL should always be valid");
             app.add_capability(
                 tauri::ipc::CapabilityBuilder::new("localhost")
                 .remote(url.to_string())
